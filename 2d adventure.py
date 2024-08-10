@@ -7,6 +7,15 @@ screen = pygame.display.set_mode([900, 450])
 clock = pygame.time.Clock()
 pygame.display.set_caption("2d adventure")
 
+# Musik und Soundeffekte laden
+pygame.mixer.music.load("Sounds/background-music.mp3")
+pygame.mixer.music.play(-1)  # -1 spielt die Musik in einer Endlosschleife
+
+schiessenSound = pygame.mixer.Sound("Sounds/schiessen.wav")
+einsammelnSound = pygame.mixer.Sound("Sounds/einsammeln.wav")
+sprungSound = pygame.mixer.Sound("Sounds/sprung.wav")  # Definiere den Sprung-Soundeffekt
+
+# Spieler Texturen
 angriffLinks = pygame.image.load("Grafiken/angriffLinks.png")
 angriffRechts = pygame.image.load("Grafiken/angriffRechts.png")
 sprung = pygame.image.load("Grafiken/sprung.png")
@@ -18,8 +27,12 @@ linksGehen = [pygame.image.load("Grafiken/links1.png"), pygame.image.load("Grafi
               pygame.image.load("Grafiken/links3.png"), pygame.image.load("Grafiken/links4.png"),
               pygame.image.load("Grafiken/links5.png"), pygame.image.load("Grafiken/links6.png"),
               pygame.image.load("Grafiken/links7.png"), pygame.image.load("Grafiken/links8.png")]
-sprungSound = pygame.mixer.Sound("Sounds/cartoon-jump-6462.wav")
 
+# Zombie Texturen
+zombieLinks = [pygame.image.load("Grafiken/l1.png"), pygame.image.load("Grafiken/l2.png"),
+               pygame.image.load("Grafiken/l3.png"), pygame.image.load("Grafiken/l4.png")]
+zombieRechts = [pygame.image.load("Grafiken/r1.png"), pygame.image.load("Grafiken/r2.png"),
+                pygame.image.load("Grafiken/r3.png"), pygame.image.load("Grafiken/r4.png")]
 
 class spieler:
     def __init__(self, x, y, geschw, breite, hoehe, sprungvar, richtg, schritteRechts, schritteLinks):
@@ -34,7 +47,7 @@ class spieler:
         self.schritteLinks = schritteLinks
         self.sprung = False
         self.last = [1, 0]
-        self.ok = True
+        self.leben = 3  # Leben des Spielers
 
     def laufen(self, liste):
         if liste[0]:
@@ -55,7 +68,7 @@ class spieler:
         self.resetSchritte()
 
     def sprungSetzen(self):
-        if self.sprungvar == -13:
+        if not self.sprung:  # Nur springen, wenn der Spieler nicht bereits in der Luft ist
             self.sprung = True
             self.sprungvar = 12
             pygame.mixer.Sound.play(sprungSound)
@@ -95,6 +108,16 @@ class spieler:
         if self.richtg[3]:
             screen.blit(sprung, (self.x, self.y))
 
+    def lebensanzeige(self):
+        schrift = pygame.font.SysFont("comicsans", 30)
+        text = schrift.render("Leben: " + str(self.leben), 1, (255, 255, 255))
+        screen.blit(text, (10, 10))
+
+    def kollidiertMitZombie(self, zombie):
+        spielerRechteck = pygame.Rect(self.x, self.y, self.breite, self.hoehe)
+        zombieRechteck = pygame.Rect(zombie.x, zombie.y, zombie.breite, zombie.hoehe)
+        return spielerRechteck.colliderect(zombieRechteck)
+
 
 class kugel:
     def __init__(self, spx, spy, richtung, geschw):
@@ -114,57 +137,118 @@ class kugel:
     def zeichnen(self):
         start_pos = (self.x, self.y)
         end_pos = (self.x + 5 * self.geschw, self.y)
-        pygame.draw.line(screen, (255, 0, 0), start_pos, end_pos, 5)  
+        pygame.draw.line(screen, (255, 0, 0), start_pos, end_pos, 5)
+
+
+class zombie:
+    def __init__(self, x, y, geschw, breite, hoehe, xMin, xMax):
+        self.x = x
+        self.y = y
+        self.geschw = geschw
+        self.breite = breite
+        self.hoehe = hoehe
+        self.schritte = 0
+        self.xMin = xMin
+        self.xMax = xMax
+        self.richtg = 1 if geschw > 0 else -1  # 1 für rechts, -1 für links
+
+    def hinHer(self):
+        self.x += self.geschw
+        if self.x > self.xMax or self.x < self.xMin:
+            self.geschw *= -1
+            self.richtg *= -1  # Richtungswechsel
+        self.schritte += 1
+        if self.schritte >= len(zombieRechts) * 8:
+            self.schritte = 0
+
+    def zZeichnen(self):
+        if self.richtg > 0:
+            screen.blit(zombieRechts[self.schritte // 8], (self.x, self.y))
+        else:
+            screen.blit(zombieLinks[self.schritte // 8], (self.x, self.y))
+
+
+class powerup:
+    def __init__(self, x, y, typ):
+        self.x = x
+        self.y = y
+        self.typ = typ
+        self.bild = pygame.image.load("Grafiken/powerup.png")  # Beispielgrafik für das Power-Up
+        self.breite = 32
+        self.hoehe = 32
+
+    def zeichnen(self):
+        screen.blit(self.bild, (self.x, self.y))
+
+    def einsammeln(self, spieler):
+        spielerRechteck = pygame.Rect(spieler.x, spieler.y, spieler.breite, spieler.hoehe)
+        powerupRechteck = pygame.Rect(self.x, self.y, self.breite, self.hoehe)
+        if spielerRechteck.colliderect(powerupRechteck):
+            if self.typ == "leben":
+                spieler.leben += 1
+            elif self.typ == "geschw":
+                spieler.geschw += 1
+            pygame.mixer.Sound.play(einsammelnSound)
+            return True
+        return False
 
 
 def zeichnen():
     screen.blit(hintergrund, (0, 0))
     for k in kugeln:
         k.zeichnen()
+    for z in zombies:
+        z.zZeichnen()
+    for p in powerups:
+        p.zeichnen()
     spieler1.spZeichnen()
+    spieler1.lebensanzeige()
     pygame.display.update()
 
 
-def kugelHandler():
-    global kugeln
-    for k in kugeln:
-        if 0 <= k.x <= 900:
-            k.bewegen()
-        else:
-            kugeln.remove(k)
-
-
-linkeWand = pygame.draw.rect(screen, (0, 0, 0), (1, 0, 2, 450), 0)
-rechteWand = pygame.draw.rect(screen, (0, 0, 0), (899, 0, 2, 450), 0)
 spieler1 = spieler(300, 273, 5, 96, 128, -13, [0, 0, 1, 0], 0, 0)
+zombie1 = zombie(600, 273, 4, 96, 128, 40, 800)
 kugeln = []
-go = True
-while go:
+zombies = [zombie1]
+powerups = [powerup(200, 300, "leben"), powerup(400, 300, "geschw")]
+
+while True:
+    clock.tick(60)
+    zeichnen()
+
     for event in pygame.event.get():
-        if event.type == pygame.QUIT: sys.exit()
+        if event.type == pygame.QUIT:
+            pygame.quit()
+            sys.exit()
 
-    spielerRechteck = pygame.Rect(spieler1.x, spieler1.y, 96, 128)
-    gedrueckt = pygame.key.get_pressed()
+    keys = pygame.key.get_pressed()
 
-    if gedrueckt[pygame.K_RIGHT] and not spielerRechteck.colliderect(rechteWand):
-        spieler1.laufen([0, 1])
-    elif gedrueckt[pygame.K_LEFT] and not spielerRechteck.colliderect(linkeWand):
-        spieler1.laufen([1, 0])
+    if keys[pygame.K_LEFT]:
+        spieler1.laufen([True, False])
+    elif keys[pygame.K_RIGHT]:
+        spieler1.laufen([False, True])
     else:
         spieler1.stehen()
 
-    if gedrueckt[pygame.K_UP]:
-        spieler1.sprungSetzen()
+    if not spieler1.sprung:
+        if keys[pygame.K_SPACE]:
+            spieler1.sprungSetzen()
+
+    if keys[pygame.K_x]:
+        richtung = spieler1.richtg
+        kugeln.append(kugel(spieler1.x, spieler1.y, richtung, 10))
+        pygame.mixer.Sound.play(schiessenSound)  # Schießen Soundeffekt abspielen
+
+    for kugel in kugeln[:]:
+        kugel.bewegen()
+        if kugel.x < 0 or kugel.x > screen.get_width():  # Kugel aus dem Bildschirm entfernen
+            kugeln.remove(kugel)
+
+    for zombie in zombies:
+        zombie.hinHer()
+
+    for powerup in powerups[:]:
+        if powerup.einsammeln(spieler1):
+            powerups.remove(powerup)
+
     spieler1.springen()
-
-    if gedrueckt[pygame.K_SPACE]:
-        if len(kugeln) <= 4 and spieler1.ok:
-            kugeln.append(kugel(round(spieler1.x), round(spieler1.y), spieler1.last, 6))
-        spieler1.ok = False
-
-    if not gedrueckt[pygame.K_SPACE]:
-        spieler1.ok = True
-
-    kugelHandler()
-    zeichnen()
-    clock.tick(60)
