@@ -20,77 +20,100 @@ linksGehen = [pygame.image.load("Grafiken/links1.png"), pygame.image.load("Grafi
 sprungSound = pygame.mixer.Sound("Sounds/cartoon-jump-6462.wav")
 
 
-def zeichnen(liste):
-    global schritteRechts, schritteLinks
+class spieler:
+    def __init__(self, x, y, geschw, breite, hoehe, sprungvar, richtg, schritteRechts, schritteLinks):
+        self.x = x
+        self.y = y
+        self.geschw = geschw
+        self.breite = breite
+        self.hoehe = hoehe
+        self.sprungvar = sprungvar
+        self.richtg = richtg
+        self.schritteRechts = schritteRechts
+        self.schritteLinks = schritteLinks
+        self.sprung = False
+
+    def laufen(self, liste):
+        if liste[0]:
+            self.x -= self.geschw
+            self.richtg = [1, 0, 0, 0]
+            self.schritteLinks += 1
+        if liste[1]:
+            self.x += self.geschw
+            self.richtg = [0, 1, 0, 0]
+            self.schritteRechts += 1
+
+    def resetSchritte(self):
+        self.schritteLinks = 0
+        self.schritteRechts = 0
+
+    def stehen(self):
+        self.richtg = [0, 0, 1, 0]
+        self.resetSchritte()
+
+    def sprungSetzen(self):
+        if self.sprungvar == -13:
+            self.sprung = True
+            self.sprungvar = 12
+            pygame.mixer.Sound.play(sprungSound)
+
+    def springen(self):
+        if self.sprung:
+            self.richtg = [0, 0, 0, 1]
+            if self.sprungvar >= -12:
+                n = 1
+                if self.sprungvar < 0:
+                    n = -1
+                self.y -= (self.sprungvar ** 2) * 0.17 * n
+                self.sprungvar -= 1
+            else:
+                self.sprung = False
+    def spZeichnen(self):
+        if self.schritteRechts == 63:
+            self.schritteRechts = 0
+        if self.schritteLinks == 63:
+            self.schritteLinks = 0
+
+        if self.richtg[0]:
+            screen.blit(linksGehen[self.schritteLinks // 8], (self.x, self.y))
+
+        if self.richtg[1]:
+            screen.blit(rechtsGehen[self.schritteRechts // 8], (self.x, self.y))
+
+        if self.richtg[2]:
+            screen.blit(stehen, (self.x, self.y))
+
+        if self.richtg[3]:
+            screen.blit(sprung, (self.x, self.y))
+
+
+def zeichnen():
     screen.blit(hintergrund, (0, 0))
-
-    if schritteRechts == 63:
-        schritteRechts = 0
-    if schritteLinks == 63:
-        schritteLinks = 0
-
-    if liste[0]:
-        screen.blit(linksGehen[schritteLinks // 8], (x, y))
-
-    if liste[1]:
-        screen.blit(rechtsGehen[schritteRechts // 8], (x, y))
-
-    if liste[2]:
-        screen.blit(stehen, (x, y))
-
-    if liste[3]:
-        screen.blit(sprung, (x, y))
-
+    spieler1.spZeichnen()
     pygame.display.update()
 
 
-x = 300
-y = 273
-geschw = 5
-breite = 40
-hoehe = 80
-
 linkeWand = pygame.draw.rect(screen, (0, 0, 0), (1, 0, 2, 450), 0)
 rechteWand = pygame.draw.rect(screen, (0, 0, 0), (899, 0, 2, 450), 0)
-
+spieler1 = spieler(300, 273, 5, 96, 128, -13, [0, 0, 1, 0], 0, 0)
 go = True
-sprungvar = -13
-#[links,rechts,stand,sprung]
-richtg = [0, 0, 0, 0]
-schritteRechts = 0
-schritteLinks = 0
 while go:
     for event in pygame.event.get():
         if event.type == pygame.QUIT: sys.exit()
 
-    spielerRechteck = pygame.Rect(x, y, 96, 128)
+    spielerRechteck = pygame.Rect(spieler1.x, spieler1.y, 96, 128)
     gedrueckt = pygame.key.get_pressed()
-    richtg = [0, 0, 1, 0]
-    if gedrueckt[pygame.K_UP] and sprungvar == -13:
-        sprungvar = 12
+
     if gedrueckt[pygame.K_RIGHT] and not spielerRechteck.colliderect(rechteWand):
-        x += geschw
-        richtg = [0, 1, 0, 0]
-        schritteRechts += 1
-    if gedrueckt[pygame.K_LEFT] and not spielerRechteck.colliderect(linkeWand):
-        x -= geschw
-        richtg = [1, 0, 0, 0]
-        schritteLinks += 1
+        spieler1.laufen([0, 1])
+    elif gedrueckt[pygame.K_LEFT] and not spielerRechteck.colliderect(linkeWand):
+        spieler1.laufen([1, 0])
+    else:
+        spieler1.stehen()
 
-    if sprungvar == 12:
-        pygame.mixer.Sound.play(sprungSound)
+    if gedrueckt[pygame.K_UP]:
+        spieler1.sprungSetzen()
+    spieler1.springen()
 
-    if sprungvar >= -12:
-        richtg = [0, 0, 0, 1]
-        n = 1
-        if sprungvar < 0:
-            n = -1
-        y -= (sprungvar ** 2) * 0.17 * n
-        sprungvar -= 1
-
-    if richtg[2] or richtg[3]:
-        schritteRechts = 0
-        schritteLinks = 0
-
-    zeichnen(richtg)
+    zeichnen()
     clock.tick(60)
