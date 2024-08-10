@@ -1,5 +1,7 @@
 import pygame
 import sys
+import random
+import time
 
 pygame.init()
 
@@ -8,12 +10,12 @@ screen = pygame.display.set_mode([900, 450])
 clock = pygame.time.Clock()
 pygame.display.set_caption("2d adventure")
 
-# Sounddateien laden
 pygame.mixer.music.load("Sounds/background-music.mp3")
 pygame.mixer.music.play(-1)
 
 schiessenSound = pygame.mixer.Sound("Sounds/laser-shoot.wav")
-kollisionSound = pygame.mixer.Sound("Sounds/kollision.wav")  # Neues Kollisionsgeräusch
+kollisionSound = pygame.mixer.Sound("Sounds/kollision.wav")
+unverwundbarSound = pygame.mixer.Sound("Sounds/unverwundbar.wav")
 
 angriffLinks = pygame.image.load("Grafiken/angriffLinks.png")
 angriffRechts = pygame.image.load("Grafiken/angriffRechts.png")
@@ -27,6 +29,10 @@ linksGehen = [pygame.image.load("Grafiken/links1.png"), pygame.image.load("Grafi
               pygame.image.load("Grafiken/links5.png"), pygame.image.load("Grafiken/links6.png"),
               pygame.image.load("Grafiken/links7.png"), pygame.image.load("Grafiken/links8.png")]
 sprungSound = pygame.mixer.Sound("Sounds/cartoon-jump-6462.wav")
+siegSound = pygame.mixer.Sound("Sounds/robosieg.wav")
+verlorenSound = pygame.mixer.Sound("Sounds/robotod.wav")
+siegBild = pygame.image.load("Grafiken/sieg.png")
+verlorenBild = pygame.image.load("Grafiken/verloren.png")
 
 
 class spieler:
@@ -43,6 +49,10 @@ class spieler:
         self.sprung = False
         self.last = [1, 0]
         self.ok = True
+        self.unverwundbar = False
+        self.unverwundbar_ende = 0
+        self.unverwundbar_start = 0
+        self.unverwundbarSound_playing = False  # Flag to track if the sound is playing
 
     def laufen(self, liste):
         if liste[0]:
@@ -75,7 +85,7 @@ class spieler:
                 n = 1
                 if self.sprungvar < 0:
                     n = -1
-                self.y -= (self.sprungvar ** 2) * 0.17 * n
+                self.y -= (self.sprungvar ** 2) * 0.3 * n
                 self.sprungvar -= 1
             else:
                 self.sprung = False
@@ -102,6 +112,20 @@ class spieler:
 
         if self.richtg[3]:
             screen.blit(sprung, (self.x, self.y))
+
+    def setUnverwundbar(self, dauer):
+        self.unverwundbar = True
+        self.unverwundbar_start = time.time()
+        self.unverwundbar_ende = self.unverwundbar_start + dauer
+        pygame.mixer.Sound.play(unverwundbarSound)
+        self.unverwundbarSound_playing = True
+
+    def updateUnverwundbar(self):
+        if self.unverwundbar and time.time() > self.unverwundbar_ende:
+            self.unverwundbar = False
+            if self.unverwundbarSound_playing:
+                pygame.mixer.Sound.stop(unverwundbarSound)  # Stop the sound
+                self.unverwundbarSound_playing = False
 
 
 class kugel:
@@ -149,6 +173,7 @@ class zombie:
         self.ganz = pygame.image.load("Grafiken/voll.png")
         self.halb = pygame.image.load("Grafiken/halb.png")
         self.leer = pygame.image.load("Grafiken/leer.png")
+
     def herzen(self):
         if self.leben >= 2:
             screen.blit(self.ganz, (207, 15))
@@ -170,6 +195,7 @@ class zombie:
             screen.blit(self.leer, (269, 15))
         if self.leben <= 4:
             screen.blit(self.leer, (331, 15))
+
     def zZeichnen(self):
         if self.schritteRechts == 63:
             self.schritteRechts = 0
@@ -205,6 +231,10 @@ def zeichnen():
     spieler1.spZeichnen()
     zombie1.zZeichnen()
     zombie1.herzen()
+    if gewonnen:
+        screen.blit(siegBild, (0, 0))
+    elif verloren:
+        screen.blit(verlorenBild, (0, 0))
     pygame.display.update()
 
 
@@ -216,28 +246,56 @@ def kugelHandler():
         else:
             kugeln.remove(k)
 
+
 def Kollision():
-    global kugeln
-    zombieRechteck = pygame.Rect(zombie1.x+18, zombie1.y+24, zombie1.breite-36, zombie1.hoehe-24)
+    global kugeln, verloren, gewonnen, go
+    zombieRechteck = pygame.Rect(zombie1.x + 18, zombie1.y + 24, zombie1.breite - 36, zombie1.hoehe - 24)
+    spielerRechteck = pygame.Rect(spieler1.x + 18, spieler1.y + 36, spieler1.breite - 36, spieler1.hoehe - 36)
 
     for k in kugeln:
         start_pos = (k.x, k.y)
         end_pos = (k.x + 5 * k.geschw, k.y)
-
         if zombieRechteck.clipline(start_pos, end_pos):
             kugeln.remove(k)
             zombie1.leben -= 1
-            pygame.mixer.Sound.play(kollisionSound)  # Kollisionsgeräusch abspielen
+            pygame.mixer.Sound.play(kollisionSound)
+            if zombie1.leben <= 0 and not verloren:
+                gewonnen = True
+                pygame.mixer.Sound.play(siegSound)
+                go = False
+
+    if zombieRechteck.colliderect(spielerRechteck):
+        if not spieler1.unverwundbar:
+            verloren = True
+            gewonnen = False
+            pygame.mixer.Sound.play(verlorenSound)
+            go = False
+
+
+def setUnverwundbarSpieler():
+    global unwidunzeit, unwidunstart
+    unwidunzeit = random.uniform(4, 8)
+    unwidunstart = time.time()
+    spieler1.setUnverwundbar(3)
+
 
 linkeWand = pygame.draw.rect(screen, (0, 0, 0), (1, 0, 2, 450), 0)
 rechteWand = pygame.draw.rect(screen, (0, 0, 0), (899, 0, 2, 450), 0)
 spieler1 = spieler(300, 273, 5, 96, 128, -13, [0, 0, 1, 0], 0, 0)
-zombie1 = zombie(600, 273, 4, 96, 128, [0, 0], 40, 800)  # Hier wird `geschw` als `int` initialisiert.
+zombie1 = zombie(600, 273, 6, 96, 128, [0, 0], 40, 800)
+verloren = False
+gewonnen = False
 kugeln = []
 go = True
+
+# Setze Unverwundbarkeit einmal zu Beginn
+setUnverwundbarSpieler()
+
 while go:
     for event in pygame.event.get():
-        if event.type == pygame.QUIT: sys.exit()
+        if event.type == pygame.QUIT:
+            pygame.quit()
+            sys.exit()
 
     spielerRechteck = pygame.Rect(spieler1.x, spieler1.y, 96, 128)
     gedrueckt = pygame.key.get_pressed()
@@ -254,9 +312,9 @@ while go:
     spieler1.springen()
 
     if gedrueckt[pygame.K_SPACE]:
-        if len(kugeln) <= 4 and spieler1.ok:
+        if len(kugeln) <= 0 and spieler1.ok:
             kugeln.append(kugel(round(spieler1.x), round(spieler1.y), spieler1.last, 6))
-            pygame.mixer.Sound.play(schiessenSound)  # Schieß-Sound abspielen
+            pygame.mixer.Sound.play(schiessenSound)
         spieler1.ok = False
 
     if not gedrueckt[pygame.K_SPACE]:
@@ -265,6 +323,17 @@ while go:
     kugelHandler()
     zombie1.hinHer()
 
+    spieler1.updateUnverwundbar()
+    if time.time() - unwidunstart >= unwidunzeit:
+        setUnverwundbarSpieler()
+
     Kollision()
     zeichnen()
     clock.tick(60)
+
+while True:
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            pygame.quit()
+            sys.exit()
+    zeichnen()
