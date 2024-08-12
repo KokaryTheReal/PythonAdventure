@@ -274,7 +274,7 @@ def Kollision():
 
 def setUnverwundbarSpieler():
     global unwidunzeit, unwidunstart
-    unwidunzeit = random.uniform(4, 8)
+    unwidunzeit = random.uniform(5, 12)
     unwidunstart = time.time()
     spieler1.setUnverwundbar(3)
 
@@ -288,7 +288,6 @@ gewonnen = False
 kugeln = []
 go = True
 
-# Setze Unverwundbarkeit einmal zu Beginn
 setUnverwundbarSpieler()
 
 while go:
