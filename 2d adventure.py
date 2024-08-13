@@ -5,6 +5,7 @@ import time
 
 pygame.init()
 
+# Setup
 hintergrund = pygame.image.load("Grafiken/hintergrund.png")
 screen = pygame.display.set_mode([900, 450])
 clock = pygame.time.Clock()
@@ -55,6 +56,7 @@ class spieler:
         self.unverwundbar_start = 0
         self.unverwundbarSound_playing = False
         self.leben = 4
+        self.punkte = 0
         self.voll = pygame.image.load("Grafiken/voll.png")
         self.halb = pygame.image.load("Grafiken/halb.png")
         self.leer = pygame.image.load("Grafiken/leer.png")
@@ -73,9 +75,9 @@ class spieler:
             self.easterEggCount += 1
 
     def easterEggAnzeigen(self):
-        if self.easterEggCount >= 100:
+        if self.easterEggCount >= 10:
             font = pygame.font.Font(None, 74)
-            text = font.render("Wow du bist 100 Schritte gelaufen!", True, (255, 0, 0))
+            text = font.render("Wow du bist 10 Schritte gelaufen!", True, (255, 0, 0))
             screen.blit(text, (150, 200))
 
     def resetSchritte(self):
@@ -157,6 +159,12 @@ class spieler:
             self.unverwundbar_ende = self.unverwundbar_start + dauer
             pygame.mixer.Sound.play(unverwundbarSound)
             self.unverwundbarSound_playing = True
+
+    def punkteAnzeigen(self):
+        font = pygame.font.Font(None, 36)
+        text = font.render(f"Punkte: {self.punkte}", True, (255, 255, 255))
+        screen.blit(text, (10, 10))
+
 
 class kugel:
     def __init__(self, spx, spy, richtung, geschw):
@@ -269,7 +277,10 @@ def zeichnen():
     spieler1.spZeichnen()
     zombie1.zZeichnen()
     zombie1.herzenzombie()
+    zombie2.zZeichnen()
+    zombie2.herzenzombie()
     spieler1.herzen()
+    spieler1.punkteAnzeigen()
     if gewonnen:
         screen.blit(siegBild, (0, 0))
     elif verloren:
@@ -288,24 +299,34 @@ def kugelHandler():
 
 def Kollision():
     global kugeln, verloren, gewonnen, go
-    zombieRechteck = pygame.Rect(zombie1.x + 18, zombie1.y + 24, zombie1.breite - 36, zombie1.hoehe - 24)
+    zombie1Rechteck = pygame.Rect(zombie1.x + 18, zombie1.y + 24, zombie1.breite - 36, zombie1.hoehe - 24)
+    zombie2Rechteck = pygame.Rect(zombie2.x + 18, zombie2.y + 24, zombie2.breite - 36, zombie2.hoehe - 24)
     spielerRechteck = pygame.Rect(spieler1.x + 18, spieler1.y + 36, spieler1.breite - 36, spieler1.hoehe - 36)
 
     for k in kugeln:
         start_pos = (k.x, k.y)
         end_pos = (k.x + 5 * k.geschw, k.y)
-        if zombieRechteck.clipline(start_pos, end_pos):
+        if zombie1Rechteck.clipline(start_pos, end_pos):
             kugeln.remove(k)
             zombie1.lebenzombie -= 1
             if not zombie1.getroffen:
                 pygame.mixer.Sound.play(kollisionSound)
                 zombie1.getroffen = True
             if zombie1.lebenzombie <= 0 and not verloren:
-                gewonnen = True
-                pygame.mixer.Sound.play(siegSound)
-                go = False
+                spieler1.punkte += 10
+                spawnNeuerZombie()
 
-    if zombieRechteck.colliderect(spielerRechteck):
+        if zombie2Rechteck.clipline(start_pos, end_pos):
+            kugeln.remove(k)
+            zombie2.lebenzombie -= 1
+            if not zombie2.getroffen:
+                pygame.mixer.Sound.play(kollisionSound)
+                zombie2.getroffen = True
+            if zombie2.lebenzombie <= 0 and not verloren:
+                spieler1.punkte += 10
+                spawnNeuerZombie()
+
+    if zombie1Rechteck.colliderect(spielerRechteck) or zombie2Rechteck.colliderect(spielerRechteck):
         if not spieler1.unverwundbar:
             spieler1.leben -= 1
             if spieler1.leben <= 0:
@@ -317,8 +338,19 @@ def Kollision():
                 pygame.mixer.Sound.play(kollisionSound)
 
     zombie1.resetGetroffen()
+    zombie2.resetGetroffen()
+
+    # Check for win condition
+    if spieler1.punkte >= 100:
+        gewonnen = True
+        pygame.mixer.Sound.play(siegSound)
+        go = False
 
 
+def spawnNeuerZombie():
+    global zombie1, zombie2
+    zombie1 = zombie(random.randint(40, 800), 273, random.choice([6, -6]), 96, 128, [0, 0], 40, 800)
+    zombie2 = zombie(random.randint(40, 800), 273, random.choice([6, -6]), 96, 128, [0, 0], 40, 800)
 
 
 def setUnverwundbarSpieler():
@@ -332,6 +364,7 @@ linkeWand = pygame.draw.rect(screen, (0, 0, 0), (1, 0, 2, 450), 0)
 rechteWand = pygame.draw.rect(screen, (0, 0, 0), (899, 0, 2, 450), 0)
 spieler1 = spieler(300, 273, 5, 96, 128, -13, [0, 0, 1, 0], 0, 0)
 zombie1 = zombie(600, 273, 6, 96, 128, [0, 0], 40, 800)
+zombie2 = zombie(200, 273, 6, 96, 128, [0, 0], 40, 800)
 verloren = False
 gewonnen = False
 kugeln = []
@@ -370,6 +403,7 @@ while go:
 
     kugelHandler()
     zombie1.hinHer()
+    zombie2.hinHer()
 
     spieler1.updateUnverwundbar()
     if time.time() - unwidunstart >= unwidunzeit:
@@ -378,7 +412,6 @@ while go:
     Kollision()
     zeichnen()
     clock.tick(60)
-
 
 while True:
     for event in pygame.event.get():
