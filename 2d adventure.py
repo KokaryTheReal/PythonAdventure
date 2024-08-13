@@ -5,7 +5,6 @@ import time
 
 pygame.init()
 
-# Setup
 hintergrund = pygame.image.load("Grafiken/hintergrund.png")
 screen = pygame.display.set_mode([900, 450])
 clock = pygame.time.Clock()
@@ -36,27 +35,80 @@ siegBild = pygame.image.load("Grafiken/sieg.png")
 verlorenBild = pygame.image.load("Grafiken/verloren.png")
 leer = pygame.image.load("Grafiken/leer.png")
 
+
 def show_menu():
-    font = pygame.font.Font(None, 74)
-    title_text = font.render("Wähle gegen wie viele zombies du kämpfen willst", True, (255, 255, 255))
-    one_zombie_text = font.render("Drück 1 für 1 Zombie", True, (255, 255, 255))
-    two_zombies_text = font.render("Drück 2 für 2 Zombies", True, (255, 255, 255))
-    screen.blit(title_text, (150, 100))
-    screen.blit(one_zombie_text, (200, 200))
-    screen.blit(two_zombies_text, (200, 300))
+    menu_background = pygame.image.load("Grafiken/menu_background.png")
+    screen.blit(menu_background, (0, 0))
+
+    font_title = pygame.font.Font(None, 74)
+    font_options = pygame.font.Font(None, 36)
+    title_color = (255, 215, 0)
+    option_color = (255, 255, 255)
+    selected_color = (0, 255, 0)
+
+    title_text = font_title.render("Wähle die Optionen", True, title_color)
+    screen.blit(title_text, (150, 50))
+
+    choices = {
+        "1": "Spieler Speed: 5",
+        "2": "Spieler Speed: 10",
+        "3": "Spieler Speed: 15",
+        "4": "Zombie Speed: 3",
+        "5": "Zombie Speed: 6",
+        "6": "Zombie Speed: 9",
+        "7": "Punkte zum Gewinnen: 50",
+        "8": "Punkte zum Gewinnen: 100",
+        "9": "Punkte zum Gewinnen: 150",
+        "Z": "Anzahl Zombies: 1",
+        "X": "Anzahl Zombies: 2"
+    }
+
+    choice_rects = []
+    for i, (key, text) in enumerate(choices.items(), start=1):
+        option_text = font_options.render(f"Drücke {key} für {text}", True, option_color)
+        option_rect = option_text.get_rect(topleft=(100, 100 + i * 40))
+        choice_rects.append(option_rect)
+        screen.blit(option_text, option_rect.topleft)
+
     pygame.display.update()
 
-    while True:
+    choices_made = [None, None, None, None]
+    selected_index = 0
+
+    while None in choices_made:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
                 sys.exit()
             if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_1:
-                    return 1
-                if event.key == pygame.K_2:
-                    return 2
+                if event.key == pygame.K_UP:
+                    selected_index = (selected_index - 1) % len(choices)
+                if event.key == pygame.K_DOWN:
+                    selected_index = (selected_index + 1) % len(choices)
+                if event.key in [pygame.K_1, pygame.K_2, pygame.K_3, pygame.K_4, pygame.K_5, pygame.K_6, pygame.K_7,
+                                 pygame.K_8, pygame.K_9, pygame.K_z, pygame.K_x]:
+                    choice_key = chr(event.key).upper()
+                    if choice_key in choices:
+                        if choice_key in ['1', '2', '3']:
+                            choices_made[0] = int(choices[choice_key].split(": ")[1])
+                        elif choice_key in ['4', '5', '6']:
+                            choices_made[1] = int(choices[choice_key].split(": ")[1])
+                        elif choice_key in ['7', '8', '9']:
+                            choices_made[2] = int(choices[choice_key].split(": ")[1])
+                        elif choice_key in ['Z', 'X']:
+                            choices_made[3] = int(choices[choice_key].split(": ")[1])
 
+        screen.blit(menu_background, (0, 0))
+        screen.blit(title_text, (150, 50))
+        for i, (key, text) in enumerate(choices.items(), start=1):
+            color = selected_color if i - 1 == selected_index else option_color
+            option_text = font_options.render(f"Drücke {key} für {text}", True, color)
+            screen.blit(option_text, choice_rects[i - 1].topleft)
+
+        pygame.display.update()
+        pygame.time.wait(100)
+
+    return choices_made[0], choices_made[1], choices_made[2], choices_made[3]
 
 
 class spieler:
@@ -128,59 +180,33 @@ class spieler:
             else:
                 self.sprung = False
 
-    def spZeichnen(self):
-        if self.schritteRechts == 63:
-            self.schritteRechts = 0
-        if self.schritteLinks == 63:
-            self.schritteLinks = 0
-
-        if self.richtg[0]:
-            screen.blit(linksGehen[self.schritteLinks // 8], (self.x, self.y))
-            self.last = [1, 0]
-
-        if self.richtg[1]:
-            screen.blit(rechtsGehen[self.schritteRechts // 8], (self.x, self.y))
-            self.last = [0, 1]
-
-        if self.richtg[2]:
-            if self.last[0]:
-                screen.blit(angriffLinks, (self.x, self.y))
-            else:
-                screen.blit(angriffRechts, (self.x, self.y))
-
-        if self.richtg[3]:
-            screen.blit(sprung, (self.x, self.y))
-
-    def herzen(self):
-        if self.leben >= 2:
-            screen.blit(self.voll, (207, 15))
-        if self.leben >= 4:
-            screen.blit(self.voll, (267, 15))
-
+    def zeichenLeben(self):
+        if self.leben == 4:
+            screen.blit(self.voll, (10, 10))
+            screen.blit(self.voll, (40, 10))
+        if self.leben == 3:
+            screen.blit(self.voll, (10, 10))
+            screen.blit(self.halb, (40, 10))
+        if self.leben == 2:
+            screen.blit(self.voll, (10, 10))
+            screen.blit(self.leer, (40, 10))
         if self.leben == 1:
-            screen.blit(self.halb, (207, 15))
-        elif self.leben >= 3:
-            screen.blit(self.halb, (267, 15))
+            screen.blit(self.halb, (10, 10))
+            screen.blit(self.leer, (40, 10))
+        if self.leben == 0:
+            screen.blit(self.leer, (10, 10))
+            screen.blit(self.leer, (40, 10))
 
-        if self.leben <= 0:
-            screen.blit(self.leer, (207, 15))
-        if self.leben >= 2:
-            screen.blit(self.leer, (267, 15))
+    def unverwundbarkeitStarten(self):
+        self.unverwundbar = True
+        self.unverwundbar_start = pygame.time.get_ticks()
+        pygame.mixer.Sound.play(unverwundbarSound)
 
-    def updateUnverwundbar(self):
-        if self.unverwundbar and time.time() > self.unverwundbar_ende:
-            self.unverwundbar = False
-            if self.unverwundbarSound_playing:
-                pygame.mixer.Sound.stop(unverwundbarSound)
-                self.unverwundbarSound_playing = False
-
-    def setUnverwundbar(self, dauer):
-        if not self.unverwundbar:
-            self.unverwundbar = True
-            self.unverwundbar_start = time.time()
-            self.unverwundbar_ende = self.unverwundbar_start + dauer
-            pygame.mixer.Sound.play(unverwundbarSound)
-            self.unverwundbarSound_playing = True
+    def unverwundbarkeitBeenden(self):
+        self.unverwundbar = False
+        self.unverwundbar_ende = pygame.time.get_ticks()
+        pygame.mixer.music.play(-1)
+        self.unverwundbarSound_playing = False
 
     def punkteAnzeigen(self):
         font = pygame.font.Font(None, 36)
@@ -189,89 +215,43 @@ class spieler:
 
 
 class kugel:
-    def __init__(self, spx, spy, richtung, geschw):
-        self.x = spx
-        self.y = spy
-        if richtung[0]:
-            self.x += 5
-            self.geschw = -1 * geschw
-        elif richtung[1]:
-            self.x += 92
-            self.geschw = geschw
-        self.y += 84
+    def __init__(self, x, y, radius, farbe, geschw):
+        self.x = x
+        self.y = y
+        self.radius = radius
+        self.farbe = farbe
+        self.geschw = geschw
 
-    def bewegen(self):
-        self.x += self.geschw
+    def zeichnen(self, screen):
+        pygame.draw.circle(screen, self.farbe, (self.x, self.y), self.radius)
 
-    def zeichnen(self):
-        start_pos = (self.x, self.y)
-        end_pos = (self.x + 5 * self.geschw, self.y)
-        pygame.draw.line(screen, (255, 0, 0), start_pos, end_pos, 5)
+    def bewegen(self, richtung):
+        if richtung == 0:
+            self.x += self.geschw
+        if richtung == 1:
+            self.x -= self.geschw
+
+    def kollision(self, obj):
+        return obj.y < self.y < obj.y + obj.hoehe and obj.x < self.x < obj.x + obj.breite
 
 
 class zombie:
-    def __init__(self, x, y, geschw, breite, hoehe, richtg, xMin, xMax):
+    def __init__(self, x, y, breite, hoehe, geschw, farbe):
         self.x = x
         self.y = y
-        self.geschw = geschw
         self.breite = breite
         self.hoehe = hoehe
-        self.richtg = richtg
-        self.schritteRechts = 0
-        self.schritteLinks = 0
-        self.xMin = xMin
-        self.xMax = xMax
-        self.lebenzombie = 6
-        self.linksListe = [pygame.image.load("Grafiken/l1.png"), pygame.image.load("Grafiken/l2.png"),
-                           pygame.image.load("Grafiken/l3.png"), pygame.image.load("Grafiken/l4.png"),
-                           pygame.image.load("Grafiken/l5.png"), pygame.image.load("Grafiken/l6.png"),
-                           pygame.image.load("Grafiken/l7.png"), pygame.image.load("Grafiken/l8.png")]
-        self.rechtsListe = [pygame.image.load("Grafiken/r1.png"), pygame.image.load("Grafiken/r2.png"),
-                            pygame.image.load("Grafiken/r3.png"), pygame.image.load("Grafiken/r4.png"),
-                            pygame.image.load("Grafiken/r5.png"), pygame.image.load("Grafiken/r6.png"),
-                            pygame.image.load("Grafiken/r7.png"), pygame.image.load("Grafiken/r8.png")]
-        self.ganzzombie = pygame.image.load("Grafiken/vollzombie.png")
-        self.halbzombie = pygame.image.load("Grafiken/halbzombie.png")
-        self.getroffen = False
+        self.geschw = geschw
+        self.farbe = farbe
 
-    def herzenzombie(self):
-        offset_x = 60
+    def zeichnen(self, screen):
+        pygame.draw.rect(screen, self.farbe, (self.x, self.y, self.breite, self.hoehe))
 
-        start_x = self.x - (1 * offset_x)
-        base_y = self.y - 40
-
-        if self.lebenzombie >= 2:
-            screen.blit(self.ganzzombie, (start_x, base_y))
-        if self.lebenzombie >= 4:
-            screen.blit(self.ganzzombie, (start_x + offset_x, base_y))
-        if self.lebenzombie == 6:
-            screen.blit(self.ganzzombie, (start_x + 2 * offset_x, base_y))
-
-        if self.lebenzombie == 1:
-            screen.blit(self.halbzombie, (start_x, base_y))
-        elif self.lebenzombie == 3:
-            screen.blit(self.halbzombie, (start_x + offset_x, base_y))
-        elif self.lebenzombie == 5:
-            screen.blit(self.halbzombie, (start_x + 2 * offset_x, base_y))
-
-        if self.lebenzombie <= 0:
-            screen.blit(leer, (start_x, base_y))
-        if self.lebenzombie <= 2:
-            screen.blit(leer, (start_x + offset_x, base_y))
-        if self.lebenzombie <= 4:
-            screen.blit(leer, (start_x + 2 * offset_x, base_y))
-
-    def zZeichnen(self):
-        if self.schritteRechts == 63:
-            self.schritteRechts = 0
-        if self.schritteLinks == 63:
-            self.schritteLinks = 0
-
-        if self.richtg[0]:
-            screen.blit(self.linksListe[self.schritteLinks // 8], (self.x, self.y))
-        if self.richtg[1]:
-            screen.blit(self.rechtsListe[self.schritteRechts // 8], (self.x, self.y))
-
+    def bewegen(self, spieler_pos):
+        if self.x > spieler_pos[0]:
+            self.x -= self.geschw
+        else:
+            self.x += self.geschw
     def Laufen(self):
         self.x += self.geschw
         if self.geschw > 0:
@@ -321,7 +301,7 @@ def kugelHandler():
 
 
 def Kollision():
-    global kugeln, verloren, gewonnen, go
+    global kugeln, verloren, gewonnen, go, points_to_win
 
     zombie1Rechteck = pygame.Rect(zombie1.x + 18, zombie1.y + 24, zombie1.breite - 36, zombie1.hoehe - 24)
 
@@ -371,7 +351,7 @@ def Kollision():
     if zombie2 is not None:
         zombie2.resetGetroffen()
 
-    if spieler1.punkte >= 100:
+    if spieler1.punkte >= points_to_win:
         gewonnen = True
         pygame.mixer.Sound.play(siegSound)
         go = False
@@ -380,11 +360,11 @@ def Kollision():
 def spawnNeuerZombie():
     global zombie1, zombie2
 
-    if zombie1.lebenzombie <= 0:
-        zombie1 = zombie(random.randint(40, 800), 273, random.choice([6, -6]), 96, 128, [0, 0], 40, 800)
+    if zombie1 is None or zombie1.lebenzombie <= 0:
+        zombie1 = zombie(random.randint(40, 800), 273, zombie_speed, 96, 128, [0, 0], 40, 800)
 
-    if zombie2 is not None and zombie2.lebenzombie <= 0:
-        zombie2 = zombie(random.randint(40, 800), 273, random.choice([6, -6]), 96, 128, [0, 0], 40, 800)
+    if zombie2 is None or zombie2.lebenzombie <= 0:
+            zombie2 = zombie(random.randint(40, 800), 273, zombie_speed, 96, 128, [0, 0], 40, 800)
 
 
 def setUnverwundbarSpieler():
@@ -406,19 +386,29 @@ go = True
 
 setUnverwundbarSpieler()
 
-def spawnZombies(num_zombies):
+
+def spawnNeuerZombie():
     global zombie1, zombie2
-    zombie1 = zombie(random.randint(40, 800), 273, random.choice([6, -6]), 96, 128, [0, 0], 40, 800)
-    if num_zombies == 2:
-        zombie2 = zombie(random.randint(40, 800), 273, random.choice([6, -6]), 96, 128, [0, 0], 40, 800)
+
+    if zombie1.lebenzombie <= 0:
+        zombie1 = zombie(random.randint(40, 800), 273, zombie_speed, 96, 128, [0, 0], 40, 800)
+
+    if zombie2 is not None and zombie2.lebenzombie <= 0:
+        zombie2 = zombie(random.randint(40, 800), 273, zombie_speed, 96, 128, [0, 0], 40, 800)
     else:
         zombie2 = None
 
-def main():
-    global go, verloren, gewonnen, spieler1, zombie1, zombie2, kugeln, unwidunstart, unwidunzeit
 
-    num_zombies = show_menu()
-    spawnZombies(num_zombies)
+def main():
+    global go, verloren, gewonnen, spieler1, zombie1, zombie2, kugeln, unwidunstart, unwidunzeit, points_to_win, zombie_speed
+
+    player_speed, zombie_speed, points_to_win = show_menu()
+
+    spawnNeuerZombie()
+
+    spieler1 = spieler(300, 273, player_speed, 96, 128, -13, [0, 0, 1, 0], 0, 0)
+    zombie1 = zombie(random.randint(40, 800), 273, zombie_speed, 96, 128, [0, 0], 40, 800)
+    zombie2 = zombie(random.randint(40, 800), 273, zombie_speed, 96, 128, [0, 0], 40, 800)
 
     unwidunzeit = 0
     unwidunstart = time.time()
@@ -471,5 +461,6 @@ def main():
                 pygame.quit()
                 sys.exit()
         zeichnen()
+
 
 main()
