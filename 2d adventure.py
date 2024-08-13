@@ -36,6 +36,28 @@ siegBild = pygame.image.load("Grafiken/sieg.png")
 verlorenBild = pygame.image.load("Grafiken/verloren.png")
 leer = pygame.image.load("Grafiken/leer.png")
 
+def show_menu():
+    font = pygame.font.Font(None, 74)
+    title_text = font.render("Wähle gegen wie viele zombies du kämpfen willst", True, (255, 255, 255))
+    one_zombie_text = font.render("Drück 1 für 1 Zombie", True, (255, 255, 255))
+    two_zombies_text = font.render("Drück 2 für 2 Zombies", True, (255, 255, 255))
+    screen.blit(title_text, (150, 100))
+    screen.blit(one_zombie_text, (200, 200))
+    screen.blit(two_zombies_text, (200, 300))
+    pygame.display.update()
+
+    while True:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_1:
+                    return 1
+                if event.key == pygame.K_2:
+                    return 2
+
+
 
 class spieler:
     def __init__(self, x, y, geschw, breite, hoehe, sprungvar, richtg, schritteRechts, schritteLinks):
@@ -276,9 +298,10 @@ def zeichnen():
         k.zeichnen()
     spieler1.spZeichnen()
     zombie1.zZeichnen()
+    if zombie2 is not None:
+        zombie2.zZeichnen()
+        zombie2.herzenzombie()
     zombie1.herzenzombie()
-    zombie2.zZeichnen()
-    zombie2.herzenzombie()
     spieler1.herzen()
     spieler1.punkteAnzeigen()
     if gewonnen:
@@ -299,8 +322,14 @@ def kugelHandler():
 
 def Kollision():
     global kugeln, verloren, gewonnen, go
+
     zombie1Rechteck = pygame.Rect(zombie1.x + 18, zombie1.y + 24, zombie1.breite - 36, zombie1.hoehe - 24)
-    zombie2Rechteck = pygame.Rect(zombie2.x + 18, zombie2.y + 24, zombie2.breite - 36, zombie2.hoehe - 24)
+
+    if zombie2 is not None:
+        zombie2Rechteck = pygame.Rect(zombie2.x + 18, zombie2.y + 24, zombie2.breite - 36, zombie2.hoehe - 24)
+    else:
+        zombie2Rechteck = None
+
     spielerRechteck = pygame.Rect(spieler1.x + 18, spieler1.y + 36, spieler1.breite - 36, spieler1.hoehe - 36)
 
     for k in kugeln:
@@ -316,7 +345,7 @@ def Kollision():
                 spieler1.punkte += 10
                 spawnNeuerZombie()
 
-        if zombie2Rechteck.clipline(start_pos, end_pos):
+        if zombie2 is not None and zombie2Rechteck is not None and zombie2Rechteck.clipline(start_pos, end_pos):
             kugeln.remove(k)
             zombie2.lebenzombie -= 1
             if not zombie2.getroffen:
@@ -326,7 +355,8 @@ def Kollision():
                 spieler1.punkte += 10
                 spawnNeuerZombie()
 
-    if zombie1Rechteck.colliderect(spielerRechteck) or zombie2Rechteck.colliderect(spielerRechteck):
+    if zombie1Rechteck.colliderect(spielerRechteck) or (
+            zombie2Rechteck is not None and zombie2Rechteck.colliderect(spielerRechteck)):
         if not spieler1.unverwundbar:
             spieler1.leben -= 1
             if spieler1.leben <= 0:
@@ -338,9 +368,9 @@ def Kollision():
                 pygame.mixer.Sound.play(kollisionSound)
 
     zombie1.resetGetroffen()
-    zombie2.resetGetroffen()
+    if zombie2 is not None:
+        zombie2.resetGetroffen()
 
-    # Check for win condition
     if spieler1.punkte >= 100:
         gewonnen = True
         pygame.mixer.Sound.play(siegSound)
@@ -349,8 +379,12 @@ def Kollision():
 
 def spawnNeuerZombie():
     global zombie1, zombie2
-    zombie1 = zombie(random.randint(40, 800), 273, random.choice([6, -6]), 96, 128, [0, 0], 40, 800)
-    zombie2 = zombie(random.randint(40, 800), 273, random.choice([6, -6]), 96, 128, [0, 0], 40, 800)
+
+    if zombie1.lebenzombie <= 0:
+        zombie1 = zombie(random.randint(40, 800), 273, random.choice([6, -6]), 96, 128, [0, 0], 40, 800)
+
+    if zombie2 is not None and zombie2.lebenzombie <= 0:
+        zombie2 = zombie(random.randint(40, 800), 273, random.choice([6, -6]), 96, 128, [0, 0], 40, 800)
 
 
 def setUnverwundbarSpieler():
@@ -372,50 +406,70 @@ go = True
 
 setUnverwundbarSpieler()
 
-while go:
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            pygame.quit()
-            sys.exit()
-
-    spielerRechteck = pygame.Rect(spieler1.x, spieler1.y, 96, 128)
-    gedrueckt = pygame.key.get_pressed()
-
-    if gedrueckt[pygame.K_RIGHT] and not spielerRechteck.colliderect(rechteWand):
-        spieler1.laufen([0, 1])
-    elif gedrueckt[pygame.K_LEFT] and not spielerRechteck.colliderect(linkeWand):
-        spieler1.laufen([1, 0])
+def spawnZombies(num_zombies):
+    global zombie1, zombie2
+    zombie1 = zombie(random.randint(40, 800), 273, random.choice([6, -6]), 96, 128, [0, 0], 40, 800)
+    if num_zombies == 2:
+        zombie2 = zombie(random.randint(40, 800), 273, random.choice([6, -6]), 96, 128, [0, 0], 40, 800)
     else:
-        spieler1.stehen()
+        zombie2 = None
 
-    if gedrueckt[pygame.K_UP]:
-        spieler1.sprungSetzen()
-    spieler1.springen()
+def main():
+    global go, verloren, gewonnen, spieler1, zombie1, zombie2, kugeln, unwidunstart, unwidunzeit
 
-    if gedrueckt[pygame.K_SPACE]:
-        if len(kugeln) <= 0 and spieler1.ok:
-            kugeln.append(kugel(round(spieler1.x), round(spieler1.y), spieler1.last, 6))
-            pygame.mixer.Sound.play(schiessenSound)
-        spieler1.ok = False
+    num_zombies = show_menu()
+    spawnZombies(num_zombies)
 
-    if not gedrueckt[pygame.K_SPACE]:
-        spieler1.ok = True
+    unwidunzeit = 0
+    unwidunstart = time.time()
 
-    kugelHandler()
-    zombie1.hinHer()
-    zombie2.hinHer()
+    while go:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
 
-    spieler1.updateUnverwundbar()
-    if time.time() - unwidunstart >= unwidunzeit:
-        setUnverwundbarSpieler()
+        spielerRechteck = pygame.Rect(spieler1.x, spieler1.y, 96, 128)
+        gedrueckt = pygame.key.get_pressed()
 
-    Kollision()
-    zeichnen()
-    clock.tick(60)
+        if gedrueckt[pygame.K_RIGHT] and not spielerRechteck.colliderect(rechteWand):
+            spieler1.laufen([0, 1])
+        elif gedrueckt[pygame.K_LEFT] and not spielerRechteck.colliderect(linkeWand):
+            spieler1.laufen([1, 0])
+        else:
+            spieler1.stehen()
 
-while True:
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            pygame.quit()
-            sys.exit()
-    zeichnen()
+        if gedrueckt[pygame.K_UP]:
+            spieler1.sprungSetzen()
+        spieler1.springen()
+
+        if gedrueckt[pygame.K_SPACE]:
+            if len(kugeln) <= 0 and spieler1.ok:
+                kugeln.append(kugel(round(spieler1.x), round(spieler1.y), spieler1.last, 6))
+                pygame.mixer.Sound.play(schiessenSound)
+            spieler1.ok = False
+
+        if not gedrueckt[pygame.K_SPACE]:
+            spieler1.ok = True
+
+        kugelHandler()
+        zombie1.hinHer()
+        if zombie2:
+            zombie2.hinHer()
+
+        spieler1.updateUnverwundbar()
+        if time.time() - unwidunstart >= unwidunzeit:
+            setUnverwundbarSpieler()
+
+        Kollision()
+        zeichnen()
+        clock.tick(60)
+
+    while True:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+        zeichnen()
+
+main()
