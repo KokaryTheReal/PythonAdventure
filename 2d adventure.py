@@ -33,6 +33,7 @@ siegSound = pygame.mixer.Sound("Sounds/robosieg.wav")
 verlorenSound = pygame.mixer.Sound("Sounds/robotod.wav")
 siegBild = pygame.image.load("Grafiken/sieg.png")
 verlorenBild = pygame.image.load("Grafiken/verloren.png")
+leer = pygame.image.load("Grafiken/leer.png")
 
 
 class spieler:
@@ -52,7 +53,11 @@ class spieler:
         self.unverwundbar = False
         self.unverwundbar_ende = 0
         self.unverwundbar_start = 0
-        self.unverwundbarSound_playing = False  # Flag to track if the sound is playing
+        self.unverwundbarSound_playing = False
+        self.leben = 2
+        self.voll = pygame.image.load("Grafiken/voll.png")
+        self.halb = pygame.image.load("Grafiken/halb.png")
+        self.leer = pygame.image.load("Grafiken/leer.png")
 
     def laufen(self, liste):
         if liste[0]:
@@ -113,6 +118,22 @@ class spieler:
         if self.richtg[3]:
             screen.blit(sprung, (self.x, self.y))
 
+    def herzen(self):
+        if self.leben >= 2:
+            screen.blit(self.voll, (207, 15))
+        if self.leben >= 4:
+            screen.blit(self.voll, (267, 15))
+
+        if self.leben == 1:
+            screen.blit(self.halb, (207, 15))
+        if self.leben >= 3:
+            screen.blit(self.halb, (267, 15))
+
+        if self.leben <= 0:
+            screen.blit(self.leer, (207, 15))
+        if self.leben >= 2:
+            screen.blit(self.leer, (267, 15))
+
     def setUnverwundbar(self, dauer):
         self.unverwundbar = True
         self.unverwundbar_start = time.time()
@@ -124,7 +145,7 @@ class spieler:
         if self.unverwundbar and time.time() > self.unverwundbar_ende:
             self.unverwundbar = False
             if self.unverwundbarSound_playing:
-                pygame.mixer.Sound.stop(unverwundbarSound)  # Stop the sound
+                pygame.mixer.Sound.stop(unverwundbarSound)
                 self.unverwundbarSound_playing = False
 
 
@@ -161,7 +182,7 @@ class zombie:
         self.schritteLinks = 0
         self.xMin = xMin
         self.xMax = xMax
-        self.leben = 6
+        self.lebenzombie = 6
         self.linksListe = [pygame.image.load("Grafiken/l1.png"), pygame.image.load("Grafiken/l2.png"),
                            pygame.image.load("Grafiken/l3.png"), pygame.image.load("Grafiken/l4.png"),
                            pygame.image.load("Grafiken/l5.png"), pygame.image.load("Grafiken/l6.png"),
@@ -170,31 +191,30 @@ class zombie:
                             pygame.image.load("Grafiken/r3.png"), pygame.image.load("Grafiken/r4.png"),
                             pygame.image.load("Grafiken/r5.png"), pygame.image.load("Grafiken/r6.png"),
                             pygame.image.load("Grafiken/r7.png"), pygame.image.load("Grafiken/r8.png")]
-        self.ganz = pygame.image.load("Grafiken/voll.png")
-        self.halb = pygame.image.load("Grafiken/halb.png")
-        self.leer = pygame.image.load("Grafiken/leer.png")
+        self.ganzzombie = pygame.image.load("Grafiken/vollzombie.png")
+        self.halbzombie = pygame.image.load("Grafiken/halbzombie.png")
 
-    def herzen(self):
-        if self.leben >= 2:
-            screen.blit(self.ganz, (207, 15))
-        if self.leben >= 4:
-            screen.blit(self.ganz, (269, 15))
-        if self.leben == 6:
-            screen.blit(self.ganz, (331, 15))
+    def herzenzombie(self):
+        if self.lebenzombie >= 2:
+            screen.blit(self.ganzzombie, (507, 15))
+        if self.lebenzombie >= 4:
+            screen.blit(self.ganzzombie, (569, 15))
+        if self.lebenzombie == 6:
+            screen.blit(self.ganzzombie, (631, 15))
 
-        if self.leben == 1:
-            screen.blit(self.halb, (207, 15))
-        elif self.leben == 3:
-            screen.blit(self.halb, (269, 15))
-        elif self.leben == 5:
-            screen.blit(self.halb, (331, 15))
+        if self.lebenzombie == 1:
+            screen.blit(self.halbzombie, (507, 15))
+        elif self.lebenzombie == 3:
+            screen.blit(self.halbzombie, (569, 15))
+        elif self.lebenzombie == 5:
+            screen.blit(self.halbzombie, (631, 15))
 
-        if self.leben <= 0:
-            screen.blit(self.leer, (207, 15))
-        if self.leben <= 2:
-            screen.blit(self.leer, (269, 15))
-        if self.leben <= 4:
-            screen.blit(self.leer, (331, 15))
+        if self.lebenzombie <= 0:
+            screen.blit(leer, (507, 15))
+        if self.lebenzombie <= 2:
+            screen.blit(leer, (569, 15))
+        if self.lebenzombie <= 4:
+            screen.blit(leer, (631, 15))
 
     def zZeichnen(self):
         if self.schritteRechts == 63:
@@ -230,7 +250,8 @@ def zeichnen():
         k.zeichnen()
     spieler1.spZeichnen()
     zombie1.zZeichnen()
-    zombie1.herzen()
+    zombie1.herzenzombie()
+    spieler1.herzen()
     if gewonnen:
         screen.blit(siegBild, (0, 0))
     elif verloren:
@@ -257,19 +278,24 @@ def Kollision():
         end_pos = (k.x + 5 * k.geschw, k.y)
         if zombieRechteck.clipline(start_pos, end_pos):
             kugeln.remove(k)
-            zombie1.leben -= 1
+            zombie1.lebenzombie -= 1
             pygame.mixer.Sound.play(kollisionSound)
-            if zombie1.leben <= 0 and not verloren:
+            if zombie1.lebenzombie <= 0 and not verloren:
                 gewonnen = True
                 pygame.mixer.Sound.play(siegSound)
                 go = False
 
     if zombieRechteck.colliderect(spielerRechteck):
         if not spieler1.unverwundbar:
-            verloren = True
-            gewonnen = False
-            pygame.mixer.Sound.play(verlorenSound)
-            go = False
+            spieler1.leben -= 1
+            if spieler1.leben <= 0:
+                verloren = True
+                pygame.mixer.Sound.play(verlorenSound)
+                go = False
+            else:
+                spieler1.setUnverwundbar(3)
+                pygame.mixer.Sound.play(kollisionSound)
+
 
 
 def setUnverwundbarSpieler():
