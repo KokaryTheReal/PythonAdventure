@@ -43,7 +43,7 @@ def show_menu():
     font_title = pygame.font.Font(None, 74)
     font_options = pygame.font.Font(None, 36)
     title_color = (255, 215, 0)
-    option_color = (255, 255, 255)
+    option_color = (0, 0, 255)
     selected_color = (0, 255, 0)
 
     title_text = font_title.render("Wähle die Optionen", True, title_color)
@@ -64,9 +64,15 @@ def show_menu():
     }
 
     choice_rects = []
-    for i, (key, text) in enumerate(choices.items(), start=1):
-        option_text = font_options.render(f"Drücke {key} für {text}", True, option_color)
-        option_rect = option_text.get_rect(topleft=(100, 100 + i * 50))  # Vergrößere den Abstand
+    padding = 50
+    for i, (key, text) in enumerate(choices.items()):
+        if i < 7:
+            option_text = font_options.render(f"Drück {key}  {text}", True, option_color)
+            option_rect = option_text.get_rect(topleft=(padding, 100 + i * 50))
+        else:
+            option_text = font_options.render(f"Drück {key}  {text}", True, option_color)
+            option_rect = option_text.get_rect(topright=(900 - padding, 100 + (i - 7) * 50))
+
         choice_rects.append(option_rect)
         screen.blit(option_text, option_rect.topleft)
 
@@ -100,10 +106,14 @@ def show_menu():
 
         screen.blit(menu_background, (0, 0))
         screen.blit(title_text, (150, 30))
-        for i, (key, text) in enumerate(choices.items(), start=1):
-            color = selected_color if i - 1 == selected_index else option_color
-            option_text = font_options.render(f"Drücke {key} für {text}", True, color)
-            screen.blit(option_text, choice_rects[i - 1].topleft)
+        for i, (key, text) in enumerate(choices.items()):
+            color = selected_color if i == selected_index else option_color
+            if i < 7:
+                option_text = font_options.render(f"Drück {key}  {text}", True, color)
+                screen.blit(option_text, choice_rects[i].topleft)
+            else:
+                option_text = font_options.render(f"Drück {key}  {text}", True, color)
+                screen.blit(option_text, choice_rects[i].topleft)
 
         pygame.display.update()
         pygame.time.wait(100)
@@ -396,7 +406,7 @@ def Kollision():
                 zombie1.getroffen = True
             if zombie1.lebenzombie <= 0 and not verloren:
                 spieler1.punkte += 10
-                spawnneuerzombie()
+                spawnNeuerZombie()
 
         if zombie2 is not None and zombie2Rechteck is not None and zombie2Rechteck.clipline(start_pos, end_pos):
             to_remove.append(k)
@@ -406,7 +416,7 @@ def Kollision():
                 zombie2.getroffen = True
             if zombie2.lebenzombie <= 0 and not verloren:
                 spieler1.punkte += 10
-                spawnneuerzombie()
+                spawnNeuerZombie()
 
     for k in to_remove:
         if k in kugeln:
@@ -434,7 +444,7 @@ def Kollision():
         go = False
 
 
-def spawnNeuerZombie():
+def spawnneuerzombie():
     global zombie1, zombie2
 
     if zombie1 is None or zombie1.lebenzombie <= 0:
@@ -464,16 +474,14 @@ go = True
 setUnverwundbarSpieler()
 
 
-def spawnneuerzombie():
+def spawnNeuerZombie():
     global zombie1, zombie2
 
-    if zombie1.lebenzombie <= 0:
+    if zombie1.lebenzombie <= 0 and (zombie2 is None or zombie2.lebenzombie > 0):
         zombie1 = zombie(random.randint(40, 800), 273, zombie_speed, 96, 128, [0, 0], 40, 800)
 
-    if zombie2 is not None and zombie2.lebenzombie <= 0:
+    if zombie2 is not None and zombie2.lebenzombie <= 0 < zombie1.lebenzombie:
         zombie2 = zombie(random.randint(40, 800), 273, zombie_speed, 96, 128, [0, 0], 40, 800)
-    else:
-        zombie2 = None
 
 
 def main():
@@ -483,6 +491,11 @@ def main():
 
     spieler1 = spieler(300, 273, player_speed, 96, 128, -13, [0, 0, 1, 0], 0, 0)
     zombie1 = zombie(random.randint(40, 800), 273, zombie_speed, 96, 128, [0, 0], 40, 800)
+
+    if zombie_count == 2:
+        zombie2 = zombie(random.randint(40, 800), 273, zombie_speed, 96, 128, [0, 0], 40, 800)
+    else:
+        zombie2 = None
 
     if zombie_count > 1:
         zombie2 = zombie(random.randint(40, 800), 273, zombie_speed, 96, 128, [0, 0], 40, 800)
