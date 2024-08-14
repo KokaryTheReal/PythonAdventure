@@ -34,14 +34,15 @@ verlorenSound = pygame.mixer.Sound("Sounds/robotod.wav")
 siegBild = pygame.image.load("Grafiken/sieg.png")
 verlorenBild = pygame.image.load("Grafiken/verloren.png")
 leer = pygame.image.load("Grafiken/leer.png")
+powerupBild = pygame.image.load("Grafiken/powerup.png")
 
 
 def show_menu():
     menu_background = pygame.image.load("Grafiken/menu_background.png")
     screen.blit(menu_background, (0, 0))
 
-    font_title = pygame.font.Font(None, 74)
-    font_options = pygame.font.Font(None, 36)
+    font_title = pygame.font.Font(None, 70)
+    font_options = pygame.font.Font(None, 30)
     title_color = (255, 215, 0)
     option_color = (0, 0, 255)
     selected_color = (0, 255, 0)
@@ -151,102 +152,119 @@ class spieler:
             self.x -= self.geschw
             self.richtg = [1, 0, 0, 0]
             self.schritteLinks += 1
-            self.easterEggCount += 1
+            if self.schritteLinks % 8 == 0:
+                self.easterEggCount += 1
         if liste[1]:
             self.x += self.geschw
             self.richtg = [0, 1, 0, 0]
             self.schritteRechts += 1
-            self.easterEggCount += 1
+            if self.schritteRechts % 8 == 0:
+                self.easterEggCount += 1
 
     def easterEggAnzeigen(self):
-        if self.easterEggCount >= 10:
+        if self.easterEggCount >= 100:
             font = pygame.font.Font(None, 74)
-            text = font.render("Wow du bist 10 Schritte gelaufen!", True, (255, 0, 0))
+            text = font.render("Du bist 100 Schritte gelaufen!", True, (255, 0, 0))
             screen.blit(text, (150, 200))
 
     def resetSchritte(self):
         self.schritteLinks = 0
         self.schritteRechts = 0
 
-    def stehen(self):
-        self.richtg = [0, 0, 1, 0]
-        self.resetSchritte()
+    def stehenbleiben(self):
+        if not self.ok:
+            self.x += 0
+            self.y += 0
 
-    def sprungSetzen(self):
-        if self.sprungvar == -13:
-            self.sprung = True
-            self.sprungvar = 12
-            pygame.mixer.Sound.play(sprungSound)
-
-    def springen(self):
+    def sprung_abfrage(self):
         if self.sprung:
-            self.richtg = [0, 0, 0, 1]
-            if self.sprungvar >= -12:
-                n = 1
-                if self.sprungvar < 0:
-                    n = -1
-                self.y -= (self.sprungvar ** 2) * 0.3 * n
-                self.sprungvar -= 1
-            else:
+            self.y -= self.sprungvar
+            if self.y <= 150:
                 self.sprung = False
+        elif not self.sprung and self.y < 310:
+            self.y += self.sprungvar
+        if self.y >= 310:
+            self.y = 310
 
-    def spZeichnen(self):
-        if self.schritteRechts == 63:
-            self.schritteRechts = 0
-        if self.schritteLinks == 63:
-            self.schritteLinks = 0
-
-        if self.richtg[0]:
-            screen.blit(linksGehen[self.schritteLinks // 8], (self.x, self.y))
-            self.last = [1, 0]
-
-        if self.richtg[1]:
-            screen.blit(rechtsGehen[self.schritteRechts // 8], (self.x, self.y))
-            self.last = [0, 1]
-
-        if self.richtg[2]:
-            if self.last[0]:
-                screen.blit(angriffLinks, (self.x, self.y))
-            else:
-                screen.blit(angriffRechts, (self.x, self.y))
-
-        if self.richtg[3]:
-            screen.blit(sprung, (self.x, self.y))
-
-    def herzen(self):
-        if self.leben >= 2:
-            screen.blit(self.voll, (207, 15))
-        if self.leben >= 4:
-            screen.blit(self.voll, (267, 15))
-
-        if self.leben == 1:
-            screen.blit(self.halb, (207, 15))
-        elif self.leben >= 3:
-            screen.blit(self.halb, (267, 15))
-
-        if self.leben <= 0:
-            screen.blit(self.leer, (207, 15))
-        if self.leben >= 2:
-            screen.blit(self.leer, (267, 15))
-
-    def updateUnverwundbar(self):
-        if self.unverwundbar and time.time() > self.unverwundbar_ende:
-            self.unverwundbar = False
-            if self.unverwundbarSound_playing:
-                pygame.mixer.Sound.stop(unverwundbarSound)
+    def unverwundbarkeit(self):
+        if self.unverwundbar:
+            aktuelle_zeit = pygame.time.get_ticks()
+            if aktuelle_zeit > self.unverwundbar_ende:
+                self.unverwundbar = False
+                pygame.mixer.music.unpause()
                 self.unverwundbarSound_playing = False
 
-    def setUnverwundbar(self, dauer):
-        if not self.unverwundbar:
-            self.unverwundbar = True
-            self.unverwundbar_ende = time.time() + dauer
-            pygame.mixer.Sound.play(unverwundbarSound)
-            self.unverwundbarSound_playing = True
+    def setUnverwundbarSpieler():
+        global unwidunzeit, unwidunstart
+        unwidunzeit = random.uniform(5, 12)
+        unwidunstart = time.time()
+        spieler1.setUnverwundbar(3)
 
-    def punkteAnzeigen(self):
-        font = pygame.font.Font(None, 36)
-        text = font.render(f"Punkte: {self.punkte}", True, (255, 255, 255))
-        screen.blit(text, (10, 10))
+    def setUnverwundbar(self, dauer):
+        self.unverwundbar = True
+        self.unverwundbar_ende = pygame.time.get_ticks() + dauer * 1000
+        self.unverwundbarSound_playing = True
+        pygame.mixer.music.pause()
+
+    def display(self):
+        if self.richtg[0] == 1:
+            screen.blit(linksGehen[self.schritteLinks // 8 % 8], (self.x, self.y))
+        elif self.richtg[1] == 1:
+            screen.blit(rechtsGehen[self.schritteRechts // 8 % 8], (self.x, self.y))
+        elif self.sprung:
+            screen.blit(sprung, (self.x, self.y))
+        elif self.last[0] == 1:
+            screen.blit(angriffLinks, (self.x, self.y))
+        elif self.last[1] == 1:
+            screen.blit(angriffRechts, (self.x, self.y))
+
+        for i in range(self.leben):
+            screen.blit(self.voll, (10 + i * 30, 10))
+        if self.leben % 1 == 0.5:
+            screen.blit(self.halb, (10 + int(self.leben) * 30, 10))
+
+    def kollidieren(self, zombie):
+        if self.x < zombie.x + zombie.breite and self.x + self.breite > zombie.x and \
+           self.y < zombie.y + zombie.hoehe and self.y + self.hoehe > zombie.y:
+            if not self.unverwundbar:
+                self.leben -= 1
+                if self.leben < 0:
+                    self.leben = 0
+                pygame.mixer.Sound.play(kollisionSound)
+                self.x = 100
+                self.y = 310
+                self.resetSchritte()
+                self.unverwundbar = True
+                self.unverwundbar_ende = pygame.time.get_ticks()
+                self.unverwundbarSound_playing = True
+                pygame.mixer.music.pause()
+                return True
+        return False
+
+    def powerUp(self):
+        if self.leben < 4:
+            self.leben += 0.5
+            if self.leben > 4:
+                self.leben = 4
+            return True
+        return False
+
+
+
+class powerUp:
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+        self.bild = pygame.transform.scale(powerupBild, (30, 30))  # Größe des Power-Ups anpassen
+
+    def anzeigen(self):
+        screen.blit(self.bild, (self.x, self.y))
+
+    def kollidieren(self, spieler):
+        if self.x < spieler.x + spieler.breite and self.x + 30 > spieler.x and \
+           self.y < spieler.y + spieler.hoehe and self.y + 30 > spieler.y:
+            return True
+        return False
 
 
 class kugel:
@@ -365,6 +383,7 @@ def zeichnen():
     zombie1.herzenzombie()
     spieler1.herzen()
     spieler1.punkteAnzeigen()
+    spieler1.easterEggAnzeigen()
     if gewonnen:
         screen.blit(siegBild, (0, 0))
     elif verloren:
