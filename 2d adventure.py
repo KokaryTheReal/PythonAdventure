@@ -16,7 +16,6 @@ pygame.mixer.music.play(-1)
 schiessenSound = pygame.mixer.Sound("Sounds/laser-shoot.wav")
 kollisionSound = pygame.mixer.Sound("Sounds/kollision.wav")
 unverwundbarSound = pygame.mixer.Sound("Sounds/unverwundbar.wav")
-powerupSound = pygame.mixer.Sound("Sounds/powerup-activate.wav")
 
 angriffLinks = pygame.image.load("Grafiken/angriffLinks.png")
 angriffRechts = pygame.image.load("Grafiken/angriffRechts.png")
@@ -123,25 +122,6 @@ def show_menu():
     return choices_made[0], choices_made[1], choices_made[2], choices_made[3]
 
 
-class PowerUp:
-    def __init__(self, x, y):
-        self.x = x
-        self.y = y
-        self.width = 32
-        self.height = 32
-
-    def zeichnen(self):
-        screen.blit(powerupBild, (self.x, self.y))
-
-    def check_collision(self, spieler):
-        spieler_rect = pygame.Rect(spieler.x, spieler.y, spieler.breite, spieler.hoehe)
-        powerup_rect = pygame.Rect(self.x, self.y, self.width, self.height)
-        return spieler_rect.colliderect(powerup_rect)
-
-    def update(self):
-        pass
-
-
 class spieler:
     def __init__(self, x, y, geschw, breite, hoehe, sprungvar, richtg, schritteRechts, schritteLinks):
         self.x = x
@@ -169,7 +149,6 @@ class spieler:
         self.shoot_speed = 6
         self.powerup_active = False
         self.powerup_end_time = 0
-        self.powerup_sound_playing = False
 
     def laufen(self, liste):
         if liste[0]:
@@ -275,27 +254,16 @@ class spieler:
         text = font.render(f"Punkte: {self.punkte}", True, (255, 255, 255))
         screen.blit(text, (10, 10))
 
-        def activatePowerUp(self):
-            if not self.powerup_active:
-                self.powerup_active = True
-                self.powerup_end_time = time.time() + 3
-                self.shoot_speed = 2
-                pygame.mixer.Sound.play(powerupSound)
-                self.powerup_sound_playing = True
-
-        def updatePowerUp(self):
-            if self.powerup_active and time.time() > self.powerup_end_time:
-                self.powerup_active = False
-                self.shoot_speed = 6
-                if self.powerup_sound_playing:
-                    powerupSound.stop()
-                    self.powerup_sound_playing = False
-
     def updatePowerUp(self):
-        pass
+        if self.powerup_active and time.time() > self.powerup_end_time:
+            self.powerup_active = False
+            self.shoot_speed = 6
 
     def activatePowerUp(self):
-        pass
+        if not self.powerup_active:
+            self.powerup_active = True
+            self.powerup_end_time = time.time() + 3
+            self.shoot_speed = 2
 
 
 class kugel:
@@ -314,9 +282,7 @@ class kugel:
         self.x += self.geschw
 
     def zeichnen(self):
-        start_pos = (self.x, self.y)
-        end_pos = (self.x + 5 * self.geschw, self.y)
-        pygame.draw.line(screen, (255, 0, 0), start_pos, end_pos, 5)
+        pygame.draw.line(screen, (255, 0, 0), (self.x, self.y), (self.x + 5 * self.geschw, self.y), 5)
 
 
 class zombie:
@@ -406,6 +372,8 @@ def zeichnen():
     screen.blit(hintergrund, (0, 0))
     for k in kugeln:
         k.zeichnen()
+    for powerup in powerups:
+        powerup.zeichnen()
     spieler1.spZeichnen()
     zombie1.zZeichnen()
     if zombie2 is not None:
@@ -430,9 +398,28 @@ def kugelHandler():
         else:
             kugeln.remove(k)
 
+class PowerUp:
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+        self.width = 32
+        self.height = 32
+
+    def zeichnen(self):
+        screen.blit(powerupBild, (self.x, self.y))
+
+    def check_collision(self, spieler):
+        spieler_rect = pygame.Rect(spieler.x, spieler.y, spieler.breite, spieler.hoehe)
+        powerup_rect = pygame.Rect(self.x, self.y, self.width, self.height)
+        return spieler_rect.colliderect(powerup_rect)
+
+def spawn_powerup():
+    x = random.randint(100, 800)
+    y = random.randint(100, 400)
+    powerups.append(PowerUp(x, y))
 
 def Kollision():
-    global kugeln, verloren, gewonnen, go, points_to_win
+    global kugeln, verloren, gewonnen, go, points_to_win, powerups
 
     zombie1Rechteck = pygame.Rect(zombie1.x + 18, zombie1.y + 24, zombie1.breite - 36, zombie1.hoehe - 24)
 
@@ -493,19 +480,19 @@ def Kollision():
         pygame.mixer.Sound.play(siegSound)
         go = False
 
-    for powerup in powerups:
+    for powerup in powerups[:]:
         if powerup.check_collision(spieler1):
             spieler1.activatePowerUp()
             powerups.remove(powerup)
 
 
-def spawnneuerzombie():
+def spawnNeuerZombie():
     global zombie1, zombie2
 
-    if zombie1 is None or zombie1.lebenzombie <= 0:
+    if zombie1.lebenzombie <= 0 and (zombie2 is None or zombie2.lebenzombie > 0):
         zombie1 = zombie(random.randint(40, 800), 273, zombie_speed, 96, 128, [0, 0], 40, 800)
 
-    if zombie2 is None or zombie2.lebenzombie <= 0:
+    if zombie2 is not None and zombie2.lebenzombie <= 0 < zombie1.lebenzombie:
         zombie2 = zombie(random.randint(40, 800), 273, zombie_speed, 96, 128, [0, 0], 40, 800)
 
 
@@ -526,22 +513,12 @@ verloren = False
 gewonnen = False
 kugeln = []
 go = True
+next_powerup_time = 0
 
 setUnverwundbarSpieler()
 
-
-def spawnNeuerZombie():
-    global zombie1, zombie2
-
-    if zombie1.lebenzombie <= 0 and (zombie2 is None or zombie2.lebenzombie > 0):
-        zombie1 = zombie(random.randint(40, 800), 273, zombie_speed, 96, 128, [0, 0], 40, 800)
-
-    if zombie2 is not None and zombie2.lebenzombie <= 0 < zombie1.lebenzombie:
-        zombie2 = zombie(random.randint(40, 800), 273, zombie_speed, 96, 128, [0, 0], 40, 800)
-
-
-def main():
-    global go, verloren, gewonnen, spieler1, zombie1, zombie2, kugeln, unwidunstart, unwidunzeit, points_to_win, zombie_speed
+def main() -> object:
+    global go, verloren, gewonnen, spieler1, zombie1, zombie2, kugeln, points_to_win, zombie_speed, next_powerup_time
 
     player_speed, zombie_speed, points_to_win, zombie_count = show_menu()
 
@@ -555,6 +532,7 @@ def main():
 
     unwidunzeit = 0
     unwidunstart = time.time()
+    next_powerup_time = time.time() + 5
 
     while go:
         for event in pygame.event.get():
@@ -565,6 +543,10 @@ def main():
         spielerRechteck = pygame.Rect(spieler1.x, spieler1.y, 96, 128)
         gedrueckt = pygame.key.get_pressed()
 
+        if time.time() > next_powerup_time:
+            spawn_powerup()
+            next_powerup_time = time.time() + 10  # Nächstes PowerUp in 10 Sekunden
+
         if gedrueckt[pygame.K_RIGHT] and not spielerRechteck.colliderect(rechteWand):
             spieler1.laufen([0, 1])
         elif gedrueckt[pygame.K_LEFT] and not spielerRechteck.colliderect(linkeWand):
@@ -572,31 +554,42 @@ def main():
         else:
             spieler1.stehen()
 
-        if gedrueckt[pygame.K_UP]:
-            spieler1.sprungSetzen()
-        spieler1.springen()
+        if gedrueckt[pygame.K_UP] and not spielerRechteck.colliderect(linkeWand or rechteWand):
+            spieler1.springen()
 
         if gedrueckt[pygame.K_SPACE]:
-            if len(kugeln) <= 0 and spieler1.ok:
-                kugeln.append(kugel(round(spieler1.x), round(spieler1.y), spieler1.last, 6))
-                pygame.mixer.Sound.play(schiessenSound)
-            spieler1.ok = False
+            spieler1.schießen()
 
-        if not gedrueckt[pygame.K_SPACE]:
-            spieler1.ok = True
+        if not verloren and not gewonnen:
+            zombie1.hinHer()
+            if zombie2:
+                zombie2.hinHer()
+            Kollision()
 
-        kugelHandler()
-        zombie1.hinHer()
-        if zombie2:
-            zombie2.hinHer()
+        screen.blit(hintergrund, (0, 0))
 
-        spieler1.updateUnverwundbar()
-        spieler1.updatePowerUp()
+        for powerup in powerups:
+            powerup.zeichnen()
 
-        if time.time() - unwidunstart >= unwidunzeit:
-            setUnverwundbarSpieler()
+        if not verloren and not gewonnen:
+            spieler1.updatePowerUp()
+
+        if verloren:
+            screen.blit(verlorenBild, (0, 0))
+        elif gewonnen:
+            screen.blit(siegBild, (0, 0))
+        else:
+            spieler1.zeichnen()
+            for kugel in spieler1.kugeln[:]:
+                kugel.bewegen()
+                kugel.zeichnen()
+
+            zombie1.zZeichnen()
+            if zombie2:
+                zombie2.zZeichnen()
 
         pygame.display.flip()
+        spieler1.updatePowerUp()
         Kollision()
         zeichnen()
         clock.tick(60)
