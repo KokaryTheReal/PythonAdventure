@@ -178,11 +178,88 @@ class spieler:
         self.richtg = [0, 0, 1, 0]
         self.resetSchritte()
 
+    def powerup_spawning(self):
+        if not self.powerup_active:
+            if random.randint(1, 100) == 1:  # 1% Chance für ein Power-Up
+                self.powerup_x = random.randint(0, 900 - 20)  # 20 ist die Breite des Power-Ups
+                self.powerup_y = random.randint(0, 450 - 20)  # 20 ist die Höhe des Power-Ups
+                self.powerup_start_time = pygame.time.get_ticks()
+                self.powerup_active = True
+
+        if self.powerup_active:
+            screen.blit(powerupBild, (self.powerup_x, self.powerup_y))
+
+            if (self.x < self.powerup_x + 20 and self.x + self.breite > self.powerup_x and
+                    self.y < self.powerup_y + 20 and self.y + self.hoehe > self.powerup_y):
+                self.powerup_active = False
+                self.powerup_end_time = pygame.time.get_ticks() + 10000
+                self.powerup_x = -1
+                self.powerup_y = -1
+                self.shoot_speed = 12
+                unverwundbarSound.play()
+
+        if pygame.time.get_ticks() > self.powerup_end_time and self.shoot_speed == 12:
+            self.shoot_speed = 6
+
     def sprungSetzen(self):
         if self.sprungvar == -13:
             self.sprung = True
             self.sprungvar = 12
             pygame.mixer.Sound.play(sprungSound)
+
+    def verwundbarkeit(self):
+        if self.unverwundbar:
+            if not self.unverwundbarSound_playing:
+                unverwundbarSound.play()
+                self.unverwundbarSound_playing = True
+            if pygame.time.get_ticks() > self.unverwundbar_ende:
+                self.unverwundbar = False
+                self.unverwundbarSound_playing = False
+
+    def bildAendern(self):
+        if self.sprung:
+            screen.blit(sprung, (self.x, self.y))
+        else:
+            if self.richtg[1]:
+                screen.blit(rechtsGehen[self.schritteRechts // 8 % len(rechtsGehen)], (self.x, self.y))
+            elif self.richtg[0]:
+                screen.blit(linksGehen[self.schritteLinks // 8 % len(linksGehen)], (self.x, self.y))
+            else:
+                if self.last[1] == 1:
+                    screen.blit(angriffRechts, (self.x, self.y))
+                else:
+                    screen.blit(angriffLinks, (self.x, self.y))
+
+    def aufRaenderPruefen(self, liste):
+        if liste[0]:
+            if self.x - self.geschw < 0:
+                self.x = 0
+        if liste[1]:
+            if self.x + self.geschw > 900 - self.breite:
+                self.x = 900 - self.breite
+        if liste[2]:
+            if self.y - self.geschw < 0:
+                self.y = 0
+        if liste[3]:
+            if self.y + self.geschw > 450 - self.hoehe:
+                self.y = 450 - self.hoehe
+
+    def anzeigen(self):
+        self.bildAendern()
+        self.verwundbarkeit()
+        self.powerup_spawning()
+        self.easterEggAnzeigen()
+        if self.leben == 4:
+            screen.blit(self.voll, (10, 10))
+        elif self.leben == 3:
+            screen.blit(self.halb, (10, 10))
+        elif self.leben == 2:
+            screen.blit(self.leer, (10, 10))
+        elif self.leben == 1:
+            screen.blit(self.leer, (10, 40))
+        elif self.leben == 0:
+            screen.blit(self.leer, (10, 70))
+        pygame.display.update()
 
     def springen(self):
         if self.sprung:
@@ -264,6 +341,28 @@ class spieler:
             self.powerup_active = True
             self.powerup_end_time = time.time() + 3
             self.shoot_speed = 2
+
+    def kollision(self, andere):
+        if (self.x < andere.x + andere.breite and
+                self.x + self.breite > andere.x and
+                self.y < andere.y + andere.hoehe and
+                self.y + self.hoehe > andere.y):
+            return True
+        return False
+
+    def todesOrt(self, andere):
+        if (self.x < andere.x + andere.breite and
+                self.x + self.breite > andere.x and
+                self.y < andere.y + andere.hoehe and
+                self.y + self.hoehe > andere.y):
+            return True
+        return False
+
+    def punkteErhalten(self, punkte):
+        self.punkte += punkte
+
+    def punkteAbziehen(self, punkte):
+        self.punkte -= punkte
 
 
 class kugel:
@@ -399,14 +498,19 @@ def kugelHandler():
             kugeln.remove(k)
 
 class PowerUp:
-    def __init__(self, x, y):
+    def __init__(self, x, y, breite, hoehe, image):
         self.x = x
         self.y = y
-        self.width = 32
-        self.height = 32
+        self.breite = breite
+        self.hoehe = hoehe
+        self.image = image
+        self.rect = pygame.Rect(self.x, self.y, self.breite, self.hoehe)
 
     def zeichnen(self):
-        screen.blit(powerupBild, (self.x, self.y))
+        screen.blit(self.image, (self.x, self.y))
+
+    def update_rect(self):
+        self.rect = pygame.Rect(self.x, self.y, self.breite, self.hoehe)
 
     def check_collision(self, spieler):
         spieler_rect = pygame.Rect(spieler.x, spieler.y, spieler.breite, spieler.hoehe)
@@ -416,7 +520,7 @@ class PowerUp:
 def spawn_powerup():
     x = random.randint(100, 800)
     y = random.randint(100, 400)
-    powerups.append(PowerUp(x, y))
+    powerups.append(PowerUp( 20, 20, powerupBild))
 
 def Kollision():
     global kugeln, verloren, gewonnen, go, points_to_win, powerups
@@ -506,15 +610,15 @@ def setUnverwundbarSpieler():
 linkeWand = pygame.draw.rect(screen, (0, 0, 0), (1, 0, 2, 450), 0)
 rechteWand = pygame.draw.rect(screen, (0, 0, 0), (899, 0, 2, 450), 0)
 spieler1 = spieler(300, 273, 5, 96, 128, -13, [0, 0, 1, 0], 0, 0)
-powerups = [PowerUp(random.randint(0, 800), random.randint(0, 400))]
+powerups = [PowerUp(random.randint(0, 800), random.randint(0, 400),  20, 20, powerupBild)]
 zombie1 = zombie(600, 273, 6, 96, 128, [0, 0], 40, 800)
 zombie2 = zombie(200, 273, 6, 96, 128, [0, 0], 40, 800)
 verloren = False
 gewonnen = False
 kugeln = []
 go = True
-next_powerup_time = 0
-
+next_powerup_time: int = 0
+spawn_powerup()
 setUnverwundbarSpieler()
 
 def main() -> object:
@@ -524,6 +628,7 @@ def main() -> object:
 
     spieler1 = spieler(300, 273, player_speed, 96, 128, -13, [0, 0, 1, 0], 0, 0)
     zombie1 = zombie(random.randint(40, 800), 273, zombie_speed, 96, 128, [0, 0], 40, 800)
+    powerup = PowerUp(random.randint(0, 880), random.randint(0, 430), 20, 20, powerupBild)
 
     if zombie_count == 2:
         zombie2 = zombie(random.randint(40, 800), 273, zombie_speed, 96, 128, [0, 0], 40, 800)
@@ -568,8 +673,13 @@ def main() -> object:
 
         screen.blit(hintergrund, (0, 0))
 
-        for powerup in powerups:
+        for powerup in powerups[:]:
             powerup.zeichnen()
+
+            if spielerRechteck.colliderect(powerup.rect):
+                spieler1.apply_powerup(powerup.typ)
+                powerups.remove(powerup)
+                pass
 
         if not verloren and not gewonnen:
             spieler1.updatePowerUp()
@@ -579,8 +689,8 @@ def main() -> object:
         elif gewonnen:
             screen.blit(siegBild, (0, 0))
         else:
-            spieler1.zeichnen()
-            for kugel in spieler1.kugeln[:]:
+            spieler1.spZeichnen()
+            for kugel in spieler1.kugel[:]:
                 kugel.bewegen()
                 kugel.zeichnen()
 
@@ -588,10 +698,8 @@ def main() -> object:
             if zombie2:
                 zombie2.zZeichnen()
 
+        powerup.zeichnen()
         pygame.display.flip()
-        spieler1.updatePowerUp()
-        Kollision()
-        zeichnen()
         clock.tick(60)
 
     while True:
