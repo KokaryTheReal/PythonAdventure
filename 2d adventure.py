@@ -3,10 +3,12 @@ import sys
 import random
 import time
 
+from pygame import Surface, SurfaceType
+
 pygame.init()
 
 hintergrund = pygame.image.load("Grafiken/hintergrund.png")
-screen = pygame.display.set_mode([900, 450])
+screen: Surface | SurfaceType = pygame.display.set_mode([900, 450])
 clock = pygame.time.Clock()
 pygame.display.set_caption("2D Adventure")
 
@@ -28,7 +30,7 @@ verlorenSound = pygame.mixer.Sound("Sounds/robotod.wav")
 siegBild = pygame.image.load("Grafiken/sieg.png")
 verlorenBild = pygame.image.load("Grafiken/verloren.png")
 leer = pygame.image.load("Grafiken/leer.png")
-powerupBild = pygame.image.load("Grafiken/powerup.png")
+powerupBild: Surface | SurfaceType = pygame.image.load("Grafiken/powerup.png")
 
 kugeln = []
 powerups = []
@@ -69,11 +71,10 @@ def show_menu():
     choice_rects = []
     padding = 50
     for i, (key, text) in enumerate(choices.items()):
+        option_text = font_options.render(f"Drück {key}  {text}", True, option_color)
         if i < 7:
-            option_text = font_options.render(f"Drück {key}  {text}", True, option_color)
             option_rect = option_text.get_rect(topleft=(padding, 100 + i * 50))
         else:
-            option_text = font_options.render(f"Drück {key}  {text}", True, option_color)
             option_rect = option_text.get_rect(topright=(900 - padding, 100 + (i - 7) * 50))
 
         choice_rects.append(option_rect)
@@ -107,16 +108,13 @@ def show_menu():
                         elif choice_key in ['Z', 'X']:
                             choices_made[3] = int(choices[choice_key].split(": ")[1])
 
+        # Redraw menu
         screen.blit(menu_background, (0, 0))
         screen.blit(title_text, (150, 30))
         for i, (key, text) in enumerate(choices.items()):
             color = selected_color if i == selected_index else option_color
-            if i < 7:
-                option_text = font_options.render(f"Drück {key}  {text}", True, color)
-                screen.blit(option_text, choice_rects[i].topleft)
-            else:
-                option_text = font_options.render(f"Drück {key}  {text}", True, color)
-                screen.blit(option_text, choice_rects[i].topleft)
+            option_text = font_options.render(f"Drück {key}  {text}", True, color)
+            screen.blit(option_text, choice_rects[i].topleft)
 
         pygame.display.update()
         pygame.time.wait(100)
@@ -154,8 +152,12 @@ class Spieler:
         self.double_jump = False
         self.double_jump_end_time = 0
         self.next_double_jump_time = random.randint(5, 10) + time.time()
+        self.kugel = []
 
     def laufen(self, liste):
+        if liste is None:
+            raise ValueError("Liste darf nicht None seine.")
+
         if liste[0]:
             self.x -= self.geschw
             self.richtg = [1, 0, 0, 0]
@@ -276,7 +278,7 @@ class Spieler:
     def springen(self):
         if self.sprung:
             self.richtg = [0, 0, 0, 1]
-            if self.sprungvar >= -12:
+            if self.sprungvar >= -13:
                 n = 1
                 if self.sprungvar < 0:
                     n = -1
@@ -381,19 +383,15 @@ class Spieler:
             return True
         return False
 
-    def todesOrt(self, andere):
-        if (self.x < andere.x + andere.breite and
-                self.x + self.breite > andere.x and
-                self.y < andere.y + andere.hoehe and
-                self.y + self.hoehe > andere.y):
-            return True
-        return False
-
     def punkteErhalten(self, punkte):
         self.punkte += punkte
 
     def punkteAbziehen(self, punkte):
         self.punkte -= punkte
+
+    def schießen(self):
+        neue_kugel = kugel(self.x, self.y)
+        self.kugel.append(neue_kugel)
 
 
 class kugel:
@@ -440,10 +438,10 @@ class zombie:
         self.halbzombie = pygame.image.load("Grafiken/halbzombie.png")
         self.getroffen = False
         self.angriffsmodus = False
-        self.angriffEntfernung = 200  # Entfernung, in der der Zombie den Spieler angreifen wird
-        self.zombieBlitzZeit = 0  # Zeitstempel für das Blinken bei Treffer
-        self.zombieUnverwundbarDauer = 1  # Dauer der Unverwundbarkeit in Sekunden
-        self.verstaerkungSchwelle = 3  # Anzahl der Treffer, nach denen der Zombie stärker wird
+        self.angriffEntfernung = 200
+        self.zombieBlitzZeit = 0
+        self.zombieUnverwundbarDauer = 1
+        self.verstaerkungSchwelle = 3
 
     def herzenzombie(self):
         offset_x = 60
@@ -513,6 +511,9 @@ class zombie:
         else:
             self.angriffsmodus = False
 
+    def resetGetroffen(self):
+        self.getroffen = False
+
     def schadenErleiden(self, schaden):
         if time.time() > self.zombieBlitzZeit + self.zombieUnverwundbarDauer:
             self.lebenzombie -= schaden
@@ -568,13 +569,16 @@ def kugelHandler():
         else:
             kugeln.remove(k)
 
+
 class PowerUp:
     def __init__(self, x, y, breite, hoehe, image):
+        self.height = 20
+        self.width = 20
         self.x = x
         self.y = y
         self.breite = breite
         self.hoehe = hoehe
-        self.image = image
+        self.image = powerupBild
         self.rect = pygame.Rect(self.x, self.y, self.breite, self.hoehe)
 
     def zeichnen(self):
@@ -599,6 +603,7 @@ def spawn_powerup():
 
     powerups.append(PowerUp(x, y, breite, hoehe, image))
 
+
 def Kollision():
     global kugeln, verloren, gewonnen, go, points_to_win, powerups
 
@@ -608,6 +613,11 @@ def Kollision():
         zombie2Rechteck = pygame.Rect(zombie2.x + 18, zombie2.y + 24, zombie2.breite - 36, zombie2.hoehe - 24)
     else:
         zombie2Rechteck = None
+
+    if zombie1 is not None:
+        zombie1.resetGetroffen()
+    else:
+        print("zombie1 ist None.")
 
     spielerRechteck = pygame.Rect(spieler1.x + 18, spieler1.y + 36, spieler1.breite - 36, spieler1.hoehe - 36)
 
@@ -667,6 +677,30 @@ def Kollision():
             powerups.remove(powerup)
 
 
+def spielLoop(spieler_geschw=7, zombie_geschw=5):
+    global gewonnen, verloren
+    spieler1 = Spieler(x=100, y=300, geschw=spieler_geschw, breite=60, hoehe=71, sprungvar=12, richtg=[0, 0, 1, 0],
+                       schritteRechts=0, schritteLinks=0)
+    zombie1 = zombie(x=300, y=300, geschw=zombie_geschw, breite=64, hoehe=64, richtg=[1, 0], xMin=200, xMax=500)
+
+    while True:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+
+        screen.blit(hintergrund, (0, 0))
+
+        spieler1.herzen()
+        zombie1.herzenzombie()
+
+        spieler1.spZeichnen()
+        zombie1.zZeichnen()
+
+        pygame.display.update()
+        clock.tick(30)
+
+
 def spawnNeuerZombie():
     global zombie1, zombie2
 
@@ -686,24 +720,27 @@ def setUnverwundbarSpieler():
 
 linkeWand = pygame.draw.rect(screen, (0, 0, 0), (1, 0, 2, 450), 0)
 rechteWand = pygame.draw.rect(screen, (0, 0, 0), (899, 0, 2, 450), 0)
-spieler1 = spieler(300, 273, 5, 96, 128, -13, [0, 0, 1, 0], 0, 0)
+
+spieler1 = Spieler(300, 273, 5, 96, 128, -13, [0, 0, 1, 0], 0, 0)
 powerup = PowerUp(100, 200, 20, 20, powerupBild)
 zombie1 = zombie(600, 273, 6, 96, 128, [0, 0], 40, 800)
 zombie2 = zombie(200, 273, 6, 96, 128, [0, 0], 40, 800)
 verloren = False
 gewonnen = False
-kugeln = []
+kugel = []
+laufrichtung = [False, False, False, False]
 go = True
 next_powerup_time: int = 0
 spawn_powerup()
 setUnverwundbarSpieler()
 
-def main(laufrichtung=None ) -> object:
+
+def main(laufrichtung=[False, False, False, False]):
     global go, verloren, gewonnen, spieler1, zombie1, zombie2, kugeln, points_to_win, zombie_speed, next_powerup_time
 
     player_speed, zombie_speed, points_to_win, zombie_count = show_menu()
 
-    spieler1 = spieler(300, 273, player_speed, 96, 128, -13, [0, 0, 1, 0], 0, 0)
+    spieler1 = Spieler(300, 273, player_speed, 96, 128, -13, [0, 0, 1, 0], 0, 0)
     zombie1 = zombie(random.randint(40, 800), 273, zombie_speed, 96, 128, [0, 0], 40, 800)
     powerup = PowerUp(random.randint(0, 880), random.randint(0, 430), 20, 20, powerupBild)
 
@@ -755,6 +792,11 @@ def main(laufrichtung=None ) -> object:
                 zombie2.hinHer()
             Kollision()
 
+        if zombie1 is not None:
+            zombie1.resetGetroffen()
+        else:
+            print("zombie1 ist None und kann nicht verwendet werden.")
+
         screen.blit(hintergrund, (0, 0))
 
         for powerup in powerups[:]:
@@ -768,15 +810,18 @@ def main(laufrichtung=None ) -> object:
         if not verloren and not gewonnen:
             spieler1.updatePowerUp()
 
+        spieler_geschw, zombie_geschw, punkte_zum_gewinn, anzahl_zombies = show_menu()
+        spielLoop()
+
         if verloren:
             screen.blit(verlorenBild, (0, 0))
         elif gewonnen:
             screen.blit(siegBild, (0, 0))
         else:
             spieler1.spZeichnen()
-            for kugel in spieler1.kugel[:]:
-                kugel.bewegen()
-                kugel.zeichnen()
+            for KUGEL in spieler1.kugel[:]:
+                KUGEL.bewegen()
+                KUGEL.zeichnen()
 
             zombie1.zZeichnen()
             if zombie2:
