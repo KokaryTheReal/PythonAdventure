@@ -12,7 +12,7 @@ screen: Surface | SurfaceType = pygame.display.set_mode([900, 450])
 clock = pygame.time.Clock()
 pygame.display.set_caption("2D Adventure")
 
-pygame.mixer.music.load("Sounds/background-music.mp3")
+pygame.mixer.music.load("Sounds/background-music1.mp3")
 pygame.mixer.music.play(-1)
 
 schiessenSound = pygame.mixer.Sound("Sounds/laser-shoot.wav")
@@ -32,60 +32,58 @@ verlorenBild = pygame.image.load("Grafiken/verloren.png")
 leer = pygame.image.load("Grafiken/leer.png")
 powerupBild: Surface | SurfaceType = pygame.image.load("Grafiken/powerup.png")
 
-kugeln = []
-powerups = []
-spieler1 = None
-zombie1 = None
-zombie2 = None
-gewonnen = False
+linkeWand = pygame.draw.rect(screen, (0, 0, 0), (1, 0, 2, 450), 0)
+rechteWand = pygame.draw.rect(screen, (0, 0, 0), (899, 0, 2, 450), 0)
+
 verloren = False
+gewonnen = False
+kugel = []
+laufrichtung = [False, False, False, False]
+go = True
+next_powerup_time: int = 0
+powerups = []
 
 
 def show_menu():
+    pygame.mixer.music.load("Sounds/menu-music.mp3")
+    pygame.mixer.music.play(-1)
+
     menu_background = pygame.image.load("Grafiken/menu_background.png")
     screen.blit(menu_background, (0, 0))
 
-    font_title = pygame.font.Font(None, 70)
-    font_options = pygame.font.Font(None, 30)
+    font_title = pygame.font.Font(None, 80)
+    font_options = pygame.font.Font(None, 50)
     title_color = (255, 215, 0)
-    option_color = (0, 0, 255)
+    option_color = (255, 255, 255)
     selected_color = (0, 255, 0)
 
-    title_text = font_title.render("Wähle die Optionen", True, title_color)
-    screen.blit(title_text, (150, 30))
+    title_text = font_title.render("2D Adventure", True, title_color)
+    screen.blit(title_text, (screen.get_width() // 2 - title_text.get_width() // 2, 50))
 
     choices = {
-        "1": "Spieler Speed: 5",
-        "2": "Spieler Speed: 10",
-        "3": "Spieler Speed: 15",
-        "4": "Zombie Speed: 3",
-        "5": "Zombie Speed: 6",
-        "6": "Zombie Speed: 9",
-        "7": "Punkte zum Gewinnen: 50",
-        "8": "Punkte zum Gewinnen: 100",
-        "9": "Punkte zum Gewinnen: 150",
-        "Z": "Anzahl Zombies: 1",
-        "X": "Anzahl Zombies: 2"
+        "1": "Start Game",
+        "2": "Spieler Speed: 5",
+        "3": "Spieler Speed: 10",
+        "4": "Spieler Speed: 15",
+        "5": "Zombie Speed: 3",
+        "6": "Zombie Speed: 6",
+        "7": "Zombie Speed: 9",
+        "8": "Punkte zum Gewinnen: 50",
+        "9": "Punkte zum Gewinnen: 100",
+        "0": "Exit Game"
     }
 
     choice_rects = []
-    padding = 50
     for i, (key, text) in enumerate(choices.items()):
-        option_text = font_options.render(f"Drück {key}  {text}", True, option_color)
-        if i < 7:
-            option_rect = option_text.get_rect(topleft=(padding, 100 + i * 50))
-        else:
-            option_rect = option_text.get_rect(topright=(900 - padding, 100 + (i - 7) * 50))
-
+        option_text = font_options.render(f"{key}: {text}", True, option_color)
+        option_rect = option_text.get_rect(center=(screen.get_width() // 2, 150 + i * 60))
         choice_rects.append(option_rect)
-        screen.blit(option_text, option_rect.topleft)
+        screen.blit(option_text, option_rect)
 
     pygame.display.update()
 
-    choices_made = [None, None, None, None]
     selected_index = 0
-
-    while None in choices_made:
+    while True:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
@@ -96,25 +94,23 @@ def show_menu():
                 if event.key == pygame.K_DOWN:
                     selected_index = (selected_index + 1) % len(choices)
                 if event.key in [pygame.K_1, pygame.K_2, pygame.K_3, pygame.K_4, pygame.K_5, pygame.K_6, pygame.K_7,
-                                 pygame.K_8, pygame.K_9, pygame.K_z, pygame.K_x]:
-                    choice_key = chr(event.key).upper()
-                    if choice_key in choices:
-                        if choice_key in ['1', '2', '3']:
-                            choices_made[0] = int(choices[choice_key].split(": ")[1])
-                        elif choice_key in ['4', '5', '6']:
-                            choices_made[1] = int(choices[choice_key].split(": ")[1])
-                        elif choice_key in ['7', '8', '9']:
-                            choices_made[2] = int(choices[choice_key].split(": ")[1])
-                        elif choice_key in ['Z', 'X']:
-                            choices_made[3] = int(choices[choice_key].split(": ")[1])
+                                 pygame.K_8, pygame.K_9, pygame.K_0]:
+                    choice_key = chr(event.key)
+                    if choice_key == "1":
+                        pygame.mixer.music.stop()
+                        return "start"
+                    elif choice_key == "0":
+                        pygame.quit()
+                        sys.exit()
+                    else:
+                        pass
 
-        # Redraw menu
         screen.blit(menu_background, (0, 0))
-        screen.blit(title_text, (150, 30))
+        screen.blit(title_text, (screen.get_width() // 2 - title_text.get_width() // 2, 50))
         for i, (key, text) in enumerate(choices.items()):
             color = selected_color if i == selected_index else option_color
-            option_text = font_options.render(f"Drück {key}  {text}", True, color)
-            screen.blit(option_text, choice_rects[i].topleft)
+            option_text = font_options.render(f"{key}: {text}", True, color)
+            screen.blit(option_text, choice_rects[i])
 
         pygame.display.update()
         pygame.time.wait(100)
@@ -124,6 +120,7 @@ def show_menu():
 
 class Spieler:
     def __init__(self, x, y, geschw, breite, hoehe, sprungvar, richtg, schritteRechts, schritteLinks):
+        self.powerup_start_time = pygame.time.get_ticks()
         self.x = x
         self.y = y
         self.geschw = geschw
@@ -190,7 +187,6 @@ class Spieler:
             if random.randint(1, 100) == 1:
                 self.powerup_x = random.randint(0, 900 - 20)
                 self.powerup_y = random.randint(0, 450 - 20)
-                self.powerup_start_time = pygame.time.get_ticks()
                 self.powerup_active = True
 
         if self.powerup_active:
@@ -390,12 +386,16 @@ class Spieler:
         self.punkte -= punkte
 
     def schießen(self):
-        neue_kugel = kugel(self.x, self.y)
+        richtung = (True, False)
+        neue_kugel = Kugel(self.x, self.y, richtung, geschw=100)
         self.kugel.append(neue_kugel)
 
+    def apply_powerup(self, typ):
+        pass
 
-class kugel:
-    def __init__(self, spx, spy, richtung, geschw):
+
+class Kugel:
+    def __init__(self, spx: int, spy: int, richtung: tuple, geschw: int):
         self.x = spx
         self.y = spy
         if richtung[0]:
@@ -593,7 +593,11 @@ class PowerUp:
         return powerup_rect.colliderect(player_rect)
 
 
-def spawn_powerup():
+def spawn_powerup() -> object:
+    """
+
+    :rtype: object
+    """
     x = random.randint(0, 800)
     y = random.randint(0, 400)
 
@@ -603,8 +607,13 @@ def spawn_powerup():
 
     powerups.append(PowerUp(x, y, breite, hoehe, image))
 
+    assert isinstance(PowerUp, object)
+    assert isinstance(powerups, object)
+    powerups.append(PowerUp(x, y, breite, hoehe, image))
+    pass
 
-def Kollision():
+
+def Kollision() -> object:
     global kugeln, verloren, gewonnen, go, points_to_win, powerups
 
     zombie1Rechteck = pygame.Rect(zombie1.x + 18, zombie1.y + 24, zombie1.breite - 36, zombie1.hoehe - 24)
@@ -623,7 +632,7 @@ def Kollision():
 
     to_remove = []
 
-    for k in kugeln:
+    for k in kugel:
         start_pos = (k.x, k.y)
         end_pos = (k.x + 5 * k.geschw, k.y)
         if zombie1Rechteck.clipline(start_pos, end_pos):
@@ -711,31 +720,28 @@ def spawnNeuerZombie():
         zombie2 = zombie(random.randint(40, 800), 273, zombie_speed, 96, 128, [0, 0], 40, 800)
 
 
+spieler1 = Spieler(300, 273, 5, 96, 128, -13, [0, 0, 1, 0], 0, 0)
+
+
 def setUnverwundbarSpieler():
     global unwidunzeit, unwidunstart
     unwidunzeit = random.uniform(5, 12)
     unwidunstart = time.time()
     spieler1.setUnverwundbar(3)
+    pass
 
 
-linkeWand = pygame.draw.rect(screen, (0, 0, 0), (1, 0, 2, 450), 0)
-rechteWand = pygame.draw.rect(screen, (0, 0, 0), (899, 0, 2, 450), 0)
-
+spawn_powerup()
+setUnverwundbarSpieler()
 spieler1 = Spieler(300, 273, 5, 96, 128, -13, [0, 0, 1, 0], 0, 0)
 powerup = PowerUp(100, 200, 20, 20, powerupBild)
 zombie1 = zombie(600, 273, 6, 96, 128, [0, 0], 40, 800)
 zombie2 = zombie(200, 273, 6, 96, 128, [0, 0], 40, 800)
-verloren = False
-gewonnen = False
-kugel = []
-laufrichtung = [False, False, False, False]
-go = True
-next_powerup_time: int = 0
-spawn_powerup()
-setUnverwundbarSpieler()
 
 
-def main(laufrichtung=[False, False, False, False]):
+def main(laufrichtung=None):
+    if laufrichtung is None:
+        laufrichtung = [False, False, False, False]
     global go, verloren, gewonnen, spieler1, zombie1, zombie2, kugeln, points_to_win, zombie_speed, next_powerup_time
 
     player_speed, zombie_speed, points_to_win, zombie_count = show_menu()
@@ -812,6 +818,9 @@ def main(laufrichtung=[False, False, False, False]):
 
         spieler_geschw, zombie_geschw, punkte_zum_gewinn, anzahl_zombies = show_menu()
         spielLoop()
+
+        spawn_powerup()
+        setUnverwundbarSpieler()
 
         if verloren:
             screen.blit(verlorenBild, (0, 0))
