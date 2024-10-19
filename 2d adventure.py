@@ -43,8 +43,12 @@ go = True
 next_powerup_time: int = 0
 powerups = []
 
-
 def show_menu(screen):
+    player_speed = 5
+    zombie_speed = 3
+    points_to_win = 10
+    zombie_count = 2
+    return player_speed, zombie_speed, points_to_win, zombie_count
     pygame.mixer.music.load("Sounds/menu-music.mp3")
     pygame.mixer.music.play(-1)
 
@@ -682,6 +686,9 @@ def Kollision() -> object:
         if powerup.check_collision(spieler1):
             spieler1.activatePowerUp()
             powerups.remove(powerup)
+
+def zombie(x, y, geschw, breite, hoehe, richtg, xMin, xMax):
+    pass
 
 
 def spielLoop(spieler_geschw=7, zombie_geschw=5):
